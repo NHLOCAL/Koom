@@ -3,8 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:puzzle_alarm/models/alarm_model.dart';
-import 'package:puzzle_alarm/main.dart'; // נייבא את ה-navigatorKey
+import '../models/alarm_model.dart';
+import '../main.dart'; // נייבא את ה-navigatorKey
 import 'dart:convert';
 
 Future<void> initializeService() async {

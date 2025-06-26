@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../models/alarm_model.dart';
+import '../models/puzzle_model.dart';
 
 class AlarmProvider with ChangeNotifier {
   List<Alarm> _alarms = [];
@@ -27,9 +28,8 @@ class AlarmProvider with ChangeNotifier {
 
   Future<void> _saveAlarms() async {
     final prefs = await SharedPreferences.getInstance();
-    final alarmsJson = _alarms
-        .map((alarm) => jsonEncode(alarm.toJson()))
-        .toList();
+    final alarmsJson =
+        _alarms.map((alarm) => jsonEncode(alarm.toJson())).toList();
     await prefs.setStringList('alarms', alarmsJson);
   }
 
