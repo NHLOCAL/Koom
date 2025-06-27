@@ -14,17 +14,29 @@ import 'services/notification_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+Future<void> _requestPermissions() async {
+  if (await Permission.notification.isDenied) {
+    await Permission.notification.request();
+  }
+
+  // Special handling for SCHEDULE_EXACT_ALARM
+  if (await Permission.scheduleExactAlarm.isDenied) {
+    // This will open the app settings for the user to grant the permission.
+    await Permission.scheduleExactAlarm.request();
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await NotificationService().init();
 
+  // Request permissions and initialize background service only on supported platforms
   if (Platform.isAndroid || Platform.isIOS) {
-    await [
-      Permission.notification,
-      Permission.scheduleExactAlarm,
-    ].request();
-
+    await _requestPermissions();
+    await initializeService();
+  } else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    // For desktop, only the background service with timer is needed.
     await initializeService();
   }
 
