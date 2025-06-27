@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- Required for apps targeting API 34+ to use foreground services -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
 
     <application
         android:label="WakeWise"
@@ -24,9 +26,6 @@
             android:turnScreenOn="true"
             android:keepScreenOn="true">
 
-
-
-
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
@@ -37,15 +36,25 @@
             </intent-filter>
         </activity>
 
+        <!-- Background Service Declarations -->
+        <service
+            android:name="id.flutter.flutter_background_service.FlutterBackgroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
+        <receiver
+            android:name="id.flutter.flutter_background_service.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+        <!-- End of Background Service Declarations -->
 
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
-
-
-
-
 
     <queries>
         <intent>

@@ -1,22 +1,33 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../models/alarm_model.dart';
-import '../main.dart';
+import 'package:flutter_background_service_android/flutter_background_service_android.dart';
+import 'notification_service.dart';
 
 Future<void> initializeService() async {
   final service = FlutterBackgroundService();
+
+  // Initialize notification service to ensure channel is created.
+  await NotificationService().init();
+
   await service.configure(
     androidConfiguration: AndroidConfiguration(
       onStart: onStart,
       isForegroundMode: true,
       autoStart: true,
+      // This notification is required for a foreground service on Android.
+      // It lets the user know the app is running in the background.
+      notificationChannelId:
+          'alarm_channel', // Must match the one in NotificationService
+      initialNotificationTitle: 'WakeWise פעיל',
+      initialNotificationContent: 'השעונים המעוררים שלך מוגדרים.',
+      foregroundServiceNotificationId: 888,
     ),
-    iosConfiguration: IosConfiguration(onForeground: onStart, autoStart: true),
+    iosConfiguration: IosConfiguration(
+      onForeground: onStart,
+      autoStart: true,
+    ),
   );
 }
 
@@ -24,61 +35,26 @@ Future<void> initializeService() async {
 void onStart(ServiceInstance service) {
   DartPluginRegistrant.ensureInitialized();
 
-  // --- Desktop-only Timer Logic ---
-  // This part runs only on Windows/Linux/macOS because they don't support
-  // scheduled notifications like mobile platforms do.
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    Timer.periodic(const Duration(seconds: 30), (timer) async {
-      final prefs = await SharedPreferences.getInstance();
-      final alarmsJson = prefs.getStringList('alarms') ?? [];
-      if (alarmsJson.isEmpty) return;
+  // If you are using flutter_background_service for Android,
+  // it is better to listen for events from the UI.
+  if (service is AndroidServiceInstance) {
+    service.on('setAsForeground').listen((event) {
+      service.setAsForegroundService();
+    });
 
-      final List<Alarm> alarms = alarmsJson
-          .map((e) => Alarm.fromJson(jsonDecode(e)))
-          .where((alarm) => alarm.isActive)
-          .toList();
-
-      final now = DateTime.now();
-      final currentTime = TimeOfDay.fromDateTime(now);
-
-      for (var alarm in alarms) {
-        int today = now.weekday % 7; // Sunday = 0, Monday = 1, etc.
-
-        bool isRepeatToday = alarm.days.any((d) => d) && alarm.days[today];
-        bool isOneTimeAlarm = !alarm.days.any((d) => d);
-
-        if (alarm.time.hour == currentTime.hour &&
-            alarm.time.minute == currentTime.minute &&
-            (isRepeatToday || isOneTimeAlarm)) {
-          final lastTriggered = prefs.getString('last_triggered_${alarm.id}');
-          final nowStr =
-              '${now.year}-${now.month}-${now.day}-${now.hour}-${now.minute}';
-
-          if (lastTriggered != nowStr) {
-            // On desktop, we can try to navigate if the app is open.
-            final navigator = navigatorKey.currentState;
-            if (navigator != null) {
-              navigator.pushNamed('/ring', arguments: alarm.id);
-            }
-            await prefs.setString('last_triggered_${alarm.id}', nowStr);
-
-            if (isOneTimeAlarm) {
-              alarm.isActive = false;
-              final alarmIndex = alarmsJson.indexWhere(
-                (e) => jsonDecode(e)['id'] == alarm.id,
-              );
-              if (alarmIndex != -1) {
-                alarmsJson[alarmIndex] = jsonEncode(alarm.toJson());
-                await prefs.setStringList('alarms', alarmsJson);
-              }
-            }
-          }
-        }
-      }
+    service.on('setAsBackground').listen((event) {
+      service.setAsBackgroundService();
     });
   }
 
   service.on('stopService').listen((event) {
     service.stopSelf();
   });
+
+  // The main logic for scheduling alarms is handled by `NotificationService`
+  // using `zonedSchedule`. This background service's primary role is to keep
+  // the app process alive so alarms are not missed, which is a common issue
+  // on some Android manufacturer devices (like Xiaomi, Huawei, etc.).
+  // The periodic timer that was here before was inefficient and buggy.
+  debugPrint("שירות הרקע של WakeWise התחיל.");
 }
