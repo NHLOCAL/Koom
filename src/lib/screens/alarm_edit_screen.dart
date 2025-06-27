@@ -6,7 +6,7 @@ import '../providers/alarm_provider.dart';
 
 class AlarmEditScreen extends StatefulWidget {
   final Alarm? alarm;
-  const AlarmEditScreen({Key? key, this.alarm}) : super(key: key);
+  const AlarmEditScreen({super.key, this.alarm});
 
   @override
   _AlarmEditScreenState createState() => _AlarmEditScreenState();
@@ -106,7 +106,6 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
             Text('חזרה בימים', style: Theme.of(context).textTheme.titleLarge),
             SizedBox(height: 10),
             ToggleButtons(
-              children: _dayLabels.map((day) => Text(day)).toList(),
               isSelected: _selectedDays,
               onPressed: (index) {
                 setState(() {
@@ -114,6 +113,7 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
                 });
               },
               borderRadius: BorderRadius.circular(10),
+              children: _dayLabels.map((day) => Text(day)).toList(),
             ),
             SizedBox(height: 30),
 

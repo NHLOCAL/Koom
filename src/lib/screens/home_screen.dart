@@ -4,7 +4,7 @@ import '../providers/alarm_provider.dart';
 import '../widgets/alarm_list_item.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -53,8 +53,8 @@ class HomeScreen extends StatelessWidget {
         onPressed: () {
           Navigator.pushNamed(context, '/edit');
         },
-        child: Icon(Icons.add),
         tooltip: 'הוסף שעון חדש',
+        child: Icon(Icons.add),
       ),
     );
   }

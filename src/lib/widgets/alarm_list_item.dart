@@ -6,7 +6,7 @@ import '../providers/alarm_provider.dart';
 class AlarmListItem extends StatelessWidget {
   final Alarm alarm;
 
-  const AlarmListItem({Key? key, required this.alarm}) : super(key: key);
+  const AlarmListItem({super.key, required this.alarm});
 
   String _formatDays() {
     final weekDays = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];

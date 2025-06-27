@@ -8,7 +8,7 @@ import '../utils/puzzles.dart';
 
 class AlarmRingScreen extends StatefulWidget {
   final String alarmId;
-  const AlarmRingScreen({Key? key, required this.alarmId}) : super(key: key);
+  const AlarmRingScreen({super.key, required this.alarmId});
 
   @override
   _AlarmRingScreenState createState() => _AlarmRingScreenState();

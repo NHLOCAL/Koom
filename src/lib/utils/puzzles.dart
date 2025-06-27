@@ -4,12 +4,10 @@ import '../models/puzzle_model.dart';
 
 // ----- חידת חשבון -----
 class MathPuzzle extends Puzzle {
-  MathPuzzle._({required String question, required String correctAnswer})
-    : super(
-        type: PuzzleType.math,
-        question: question,
-        correctAnswer: correctAnswer,
-      );
+  MathPuzzle._({required super.question, required super.correctAnswer})
+      : super(
+          type: PuzzleType.math,
+        );
 
   factory MathPuzzle.generate() {
     final random = Random();
@@ -54,12 +52,10 @@ class MathPuzzle extends Puzzle {
 
 // ----- חידת סדרה -----
 class SequencePuzzle extends Puzzle {
-  SequencePuzzle._({required String question, required String correctAnswer})
-    : super(
-        type: PuzzleType.sequence,
-        question: question,
-        correctAnswer: correctAnswer,
-      );
+  SequencePuzzle._({required super.question, required super.correctAnswer})
+      : super(
+          type: PuzzleType.sequence,
+        );
 
   factory SequencePuzzle.generate() {
     final random = Random();
