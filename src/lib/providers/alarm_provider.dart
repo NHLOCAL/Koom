@@ -41,6 +41,7 @@ class AlarmProvider with ChangeNotifier {
     List<bool> days,
     String label,
     PuzzleType puzzleType,
+    {String? puzzleImage,}
   ) {
     final newAlarm = Alarm(
       id: Uuid().v4(),
@@ -48,6 +49,7 @@ class AlarmProvider with ChangeNotifier {
       days: days,
       label: label,
       puzzleType: puzzleType,
+      puzzleImage: puzzleImage,
     );
     _alarms.add(newAlarm);
     _saveAlarms();

@@ -23,6 +23,8 @@ dependencies:
   flutter_background_service: ^5.0.5
   flutter_localizations:
     sdk: flutter
+  image: ^4.1.4 # Added for image manipulation
+  timezone: ^0.10.1 # Added for notification service
 
 
 
@@ -42,3 +44,4 @@ flutter:
 
   assets:
     - assets/audio/
+    - assets/images/ # Added for image puzzles

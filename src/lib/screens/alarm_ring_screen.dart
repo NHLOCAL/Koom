@@ -30,7 +30,11 @@ class _AlarmRingScreenState extends State<AlarmRingScreen> {
       listen: false,
     ).getAlarmById(widget.alarmId);
     if (_alarm != null) {
-      _puzzle = createPuzzle(_alarm!.puzzleType);
+      if (_alarm!.puzzleType == PuzzleType.image) {
+        _puzzle = createPuzzle(_alarm!.puzzleType, imagePath: _alarm!.puzzleImage);
+      } else {
+        _puzzle = createPuzzle(_alarm!.puzzleType);
+      }
     } else {
       // במקרה חירום שהשעון לא נמצא, ניצור חידת ברירת מחדל
       _puzzle = createPuzzle(PuzzleType.math);
@@ -56,17 +60,9 @@ class _AlarmRingScreenState extends State<AlarmRingScreen> {
     Navigator.of(context).pop();
   }
 
-  void _onPuzzleSolved(String answer) {
-    if (_puzzle.solve(answer)) {
-      _stopAlarm();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('תשובה שגויה, נסה שוב!'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+  // This method is now called directly by the puzzle when it's solved.
+  void _onPuzzleSolved() {
+    _stopAlarm();
   }
 
   @override
@@ -78,8 +74,8 @@ class _AlarmRingScreenState extends State<AlarmRingScreen> {
   @override
   Widget build(BuildContext context) {
     // מונע מהמשתמש לסגור את המסך עם כפתור ה"אחורה"
-    return WillPopScope(
-      onWillPop: () async => false,
+    return PopScope(
+      canPop: false,
       child: Scaffold(
         body: Container(
           width: double.infinity,

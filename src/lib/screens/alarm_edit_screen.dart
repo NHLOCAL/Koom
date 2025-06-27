@@ -17,8 +17,13 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
   late TextEditingController _labelController;
   late List<bool> _selectedDays;
   late PuzzleType _selectedPuzzleType;
+  String? _selectedPuzzleImage; // New field for image puzzle path
 
   final List<String> _dayLabels = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+  final List<String> _availablePuzzleImages = [
+    'assets/images/default_puzzle.png',
+    // Add more image paths here as needed
+  ];
 
   @override
   void initState() {
@@ -29,6 +34,7 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
     );
     _selectedDays = widget.alarm?.days ?? List.filled(7, false);
     _selectedPuzzleType = widget.alarm?.puzzleType ?? PuzzleType.math;
+    _selectedPuzzleImage = widget.alarm?.puzzleImage; // Initialize from existing alarm
   }
 
   @override
@@ -46,6 +52,7 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
         _selectedDays,
         _labelController.text,
         _selectedPuzzleType,
+        puzzleImage: _selectedPuzzleType == PuzzleType.image ? _selectedPuzzleImage : null,
       );
     } else {
       // עדכון שעון קיים
@@ -54,6 +61,7 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
       updatedAlarm.label = _labelController.text;
       updatedAlarm.days = _selectedDays;
       updatedAlarm.puzzleType = _selectedPuzzleType;
+      updatedAlarm.puzzleImage = _selectedPuzzleType == PuzzleType.image ? _selectedPuzzleImage : null;
       alarmProvider.updateAlarm(updatedAlarm);
     }
     Navigator.pop(context);
@@ -129,22 +137,63 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
             DropdownButtonFormField<PuzzleType>(
               value: _selectedPuzzleType,
               items: PuzzleType.values.map((type) {
+                String text;
+                switch (type) {
+                  case PuzzleType.math:
+                    text = 'חידת חשבון';
+                    break;
+                  case PuzzleType.sequence:
+                    text = 'חידת סדרה';
+                    break;
+                  case PuzzleType.image:
+                    text = 'חידת תמונה';
+                    break;
+                }
                 return DropdownMenuItem(
                   value: type,
-                  child: Text(
-                    type == PuzzleType.math ? 'חידת חשבון' : 'חידת סדרה',
-                  ),
+                  child: Text(text),
                 );
               }).toList(),
               onChanged: (value) {
                 if (value != null) {
                   setState(() {
                     _selectedPuzzleType = value;
+                    // Reset selected image if puzzle type changes from image
+                    if (value != PuzzleType.image) {
+                      _selectedPuzzleImage = null;
+                    } else if (_selectedPuzzleImage == null && _availablePuzzleImages.isNotEmpty) {
+                      _selectedPuzzleImage = _availablePuzzleImages.first; // Set a default image if none selected
+                    }
                   });
                 }
               },
               decoration: InputDecoration(border: OutlineInputBorder()),
             ),
+            if (_selectedPuzzleType == PuzzleType.image)
+              Column(
+                children: [
+                  SizedBox(height: 30),
+                  Text('בחר תמונה לחידה', style: Theme.of(context).textTheme.titleLarge),
+                  SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    value: _selectedPuzzleImage,
+                    items: _availablePuzzleImages.map((imagePath) {
+                      return DropdownMenuItem(
+                        value: imagePath,
+                        child: Text(imagePath.split('/').last), // Display just the filename
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedPuzzleImage = value;
+                        });
+                      }
+                    },
+                    decoration: InputDecoration(border: OutlineInputBorder()),
+                  ),
+                ],
+              ),
           ],
         ),
       ),

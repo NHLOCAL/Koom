@@ -8,6 +8,7 @@ class Alarm {
   String label;
   List<bool> days; // [Sun, Mon, Tue, Wed, Thu, Fri, Sat]
   PuzzleType puzzleType;
+  String? puzzleImage; // New field for image puzzle
 
   Alarm({
     required this.id,
@@ -16,6 +17,7 @@ class Alarm {
     this.label = 'שעון מעורר',
     required this.days,
     this.puzzleType = PuzzleType.math,
+    this.puzzleImage, // Initialize new field
   });
 
   // המרה מ-JSON
@@ -27,6 +29,7 @@ class Alarm {
       label: json['label'],
       days: List<bool>.from(json['days']),
       puzzleType: PuzzleType.values.byName(json['puzzleType']),
+      puzzleImage: json['puzzleImage'], // Deserialize new field
     );
   }
 
@@ -40,6 +43,7 @@ class Alarm {
       'label': label,
       'days': days,
       'puzzleType': puzzleType.name,
+      'puzzleImage': puzzleImage, // Serialize new field
     };
   }
 }
