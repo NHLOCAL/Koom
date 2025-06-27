@@ -4,10 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../models/alarm_model.dart';
 import '../models/puzzle_model.dart';
+import '../services/notification_service.dart';
 
 class AlarmProvider with ChangeNotifier {
   List<Alarm> _alarms = [];
   bool _isLoaded = false;
+  final NotificationService _notificationService = NotificationService();
 
   List<Alarm> get alarms => _alarms;
   bool get isLoaded => _isLoaded;
@@ -23,6 +25,7 @@ class AlarmProvider with ChangeNotifier {
         .map((jsonString) => Alarm.fromJson(jsonDecode(jsonString)))
         .toList();
     _isLoaded = true;
+    _rescheduleAllAlarms();
     notifyListeners();
   }
 
@@ -48,6 +51,9 @@ class AlarmProvider with ChangeNotifier {
     );
     _alarms.add(newAlarm);
     _saveAlarms();
+    if (newAlarm.isActive) {
+      _notificationService.scheduleAlarmNotification(newAlarm);
+    }
     notifyListeners();
   }
 
@@ -56,11 +62,17 @@ class AlarmProvider with ChangeNotifier {
     if (index != -1) {
       _alarms[index] = updatedAlarm;
       _saveAlarms();
+      if (updatedAlarm.isActive) {
+        _notificationService.scheduleAlarmNotification(updatedAlarm);
+      } else {
+        _notificationService.cancelNotification(updatedAlarm.id);
+      }
       notifyListeners();
     }
   }
 
   void deleteAlarm(String id) {
+    _notificationService.cancelNotification(id);
     _alarms.removeWhere((alarm) => alarm.id == id);
     _saveAlarms();
     notifyListeners();
@@ -71,6 +83,14 @@ class AlarmProvider with ChangeNotifier {
       return _alarms.firstWhere((alarm) => alarm.id == id);
     } catch (e) {
       return null;
+    }
+  }
+
+  void _rescheduleAllAlarms() {
+    for (var alarm in _alarms) {
+      if (alarm.isActive) {
+        _notificationService.scheduleAlarmNotification(alarm);
+      }
     }
   }
 }

@@ -10,13 +10,15 @@ import 'screens/alarm_edit_screen.dart';
 import 'screens/alarm_ring_screen.dart';
 import 'models/alarm_model.dart';
 import 'services/background_service.dart';
+import 'services/notification_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Request permissions and initialize background service only on supported platforms (Android/iOS)
+  await NotificationService().init();
+
   if (Platform.isAndroid || Platform.isIOS) {
     await [
       Permission.notification,
