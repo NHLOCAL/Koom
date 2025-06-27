@@ -1,6 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:flutter_background_service/flutter_background_service.dart';
 import '../models/alarm_model.dart';
 import '../main.dart';
 
@@ -68,7 +69,7 @@ class NotificationService {
   Future<void> scheduleAlarmNotification(Alarm alarm) async {
     final tz.TZDateTime scheduledDate = _nextInstanceOfTime(alarm);
 
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'alarm_channel',
       'Alarms',
@@ -78,9 +79,11 @@ class NotificationService {
       sound: RawResourceAndroidNotificationSound('alarm_sound'),
       playSound: true,
       fullScreenIntent: true, // This is crucial
+      ongoing: true, // Make the notification persistent
+      autoCancel: false, // Prevent the notification from being dismissed
     );
 
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
     );
 
@@ -100,5 +103,7 @@ class NotificationService {
 
   Future<void> cancelNotification(String alarmId) async {
     await _flutterLocalNotificationsPlugin.cancel(alarmId.hashCode);
+    // Stop foreground service when the alarm is cancelled
+    FlutterBackgroundService().invoke("stopService");
   }
 }

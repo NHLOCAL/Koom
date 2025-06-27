@@ -48,6 +48,13 @@
         </receiver>
         <!-- END: REQUIRED FOR FLUTTER_LOCAL_NOTIFICATIONS -->
 
+        <service
+            android:name="com.dexterous.flutterlocalnotifications.ForegroundService"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:foregroundServiceType="dataSync">
+        </service>
+
         <!-- Background Service Declarations -->
         <service
             android:name="id.flutter.flutter_background_service.FlutterBackgroundService"
