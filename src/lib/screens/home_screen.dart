@@ -9,7 +9,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('שעון מעורר עם חידות'), centerTitle: true),
+      appBar: AppBar(title: Text('קום'), centerTitle: true),
       body: Consumer<AlarmProvider>(
         builder: (context, alarmProvider, child) {
           if (!alarmProvider.isLoaded) {

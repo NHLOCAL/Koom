@@ -53,7 +53,7 @@ class MyApp extends StatelessWidget {
       create: (context) => AlarmProvider(),
       child: MaterialApp(
         navigatorKey: navigatorKey,
-        title: 'Puzzle Alarm Clock',
+        title: 'קום',
         theme: ThemeData(
           primarySwatch: Colors.blue,
           visualDensity: VisualDensity.adaptivePlatformDensity,
