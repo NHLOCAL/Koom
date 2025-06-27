@@ -27,9 +27,7 @@ class MathPuzzle extends Puzzle {
       children: [
         Text(question, style: Theme.of(context).textTheme.headlineMedium),
         SizedBox(height: 20),
-        SizedBox(
-          width: 150,
-          child: TextField(
+        TextField(
             controller: controller,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
@@ -39,7 +37,6 @@ class MathPuzzle extends Puzzle {
               hintText: 'תשובה',
             ),
           ),
-        ),
         SizedBox(height: 20),
         ElevatedButton(
           child: Text('בדוק'),
@@ -78,9 +75,7 @@ class SequencePuzzle extends Puzzle {
         SizedBox(height: 10),
         Text(question, style: Theme.of(context).textTheme.headlineMedium),
         SizedBox(height: 20),
-        SizedBox(
-          width: 150,
-          child: TextField(
+        TextField(
             controller: controller,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
@@ -90,7 +85,6 @@ class SequencePuzzle extends Puzzle {
               hintText: 'המספר הבא',
             ),
           ),
-        ),
         SizedBox(height: 20),
         ElevatedButton(
           child: Text('בדוק'),

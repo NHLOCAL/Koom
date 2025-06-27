@@ -35,7 +35,7 @@ class AlarmListItem extends StatelessWidget {
       title: Text(
         timeFormat,
         style: TextStyle(
-          fontSize: 32,
+          fontSize: MediaQuery.of(context).size.width * 0.08, // גודל גופן רספונסיבי
           fontWeight: FontWeight.bold,
           color: alarm.isActive ? Colors.black : Colors.grey,
         ),

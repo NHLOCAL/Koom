@@ -98,14 +98,14 @@ class _AlarmRingScreenState extends State<AlarmRingScreen> {
                 Text(
                   _alarm?.label ?? 'זמן לקום!',
                   style: TextStyle(
-                    fontSize: 32,
+                    fontSize: MediaQuery.of(context).size.width * 0.07, // גודל גופן רספונסיבי
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 SizedBox(height: 50),
                 Card(
-                  margin: EdgeInsets.symmetric(horizontal: 20),
+                  margin: EdgeInsets.symmetric(horizontal: MediaQuery.of(context).size.width * 0.05), // שוליים רספונסיביים
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
                     child: _puzzle.build(context, _onPuzzleSolved),

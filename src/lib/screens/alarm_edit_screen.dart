@@ -87,7 +87,7 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
               },
               child: Text(
                 _selectedTime.format(context),
-                style: TextStyle(fontSize: 50, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: MediaQuery.of(context).size.width * 0.12, fontWeight: FontWeight.bold),
               ),
             ),
             SizedBox(height: 30),
@@ -116,7 +116,7 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
                 },
                 borderRadius: BorderRadius.circular(10),
                 children: _dayLabels.map((day) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0), // הופחת מ-8.0
                   child: Text(day),
                 )).toList(),
               ),
