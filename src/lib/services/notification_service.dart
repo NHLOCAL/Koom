@@ -99,11 +99,29 @@ class NotificationService {
           ? DateTimeComponents.time
           : null, // Repeat weekly if days are set
     );
+
+    // Update the foreground service notification
+    FlutterBackgroundService().invoke(
+      "updateForegroundNotification",
+      {
+        "title": alarm.label,
+        "content": "זמן לקום!",
+      },
+    );
   }
 
   Future<void> cancelNotification(String alarmId) async {
     await _flutterLocalNotificationsPlugin.cancel(alarmId.hashCode);
     // Stop foreground service when the alarm is cancelled
     FlutterBackgroundService().invoke("stopService");
+
+    // Reset the foreground service notification to default
+    FlutterBackgroundService().invoke(
+      "updateForegroundNotification",
+      {
+        "title": "קום פעיל",
+        "content": "השעונים המעוררים שלך מוגדרים.",
+      },
+    );
   }
 }

@@ -62,5 +62,14 @@ void onStart(ServiceInstance service) {
     service.stopSelf();
   });
 
+  service.on('updateForegroundNotification').listen((event) {
+    if (service is AndroidServiceInstance) {
+      service.setForegroundNotificationInfo(
+        title: event?['title'] ?? 'קום פעיל',
+        content: event?['content'] ?? 'השעונים המעוררים שלך מוגדרים.',
+      );
+    }
+  });
+
   debugPrint("שירות הרקע של קום התחיל.");
 }
