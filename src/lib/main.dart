@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -15,12 +16,15 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await [
-    Permission.notification,
-    Permission.scheduleExactAlarm,
-  ].request();
+  // Request permissions and initialize background service only on supported platforms (Android/iOS)
+  if (Platform.isAndroid || Platform.isIOS) {
+    await [
+      Permission.notification,
+      Permission.scheduleExactAlarm,
+    ].request();
 
-  await initializeService();
+    await initializeService();
+  }
 
   runApp(const MyApp());
 }
