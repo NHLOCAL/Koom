@@ -1,18 +1,18 @@
-name: wakewise_app # מומלץ לתת שם פרויקט תקין, למשל wakewise_app
-description: "A new Flutter project."
-publish_to: 'none' # הסר שורה זו אם תרצה לפרסם את החבילה
+name: wakewise_app
+description: "A puzzle alarm clock to help you wake up wisely."
+publish_to: 'none'
 
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0' # טווח SDK רחב יותר ומומלץ
+  sdk: '>=3.0.0 <4.0.0'
 
-# --- סעיף התלויות (Dependencies) ---
-# כאן רושמים רק את החבילות שהפרויקט צריך
+
+
 dependencies:
   flutter:
     sdk: flutter
-  
+
   provider: ^6.1.2
   shared_preferences: ^2.2.3
   flutter_local_notifications: ^19.3.0
@@ -24,29 +24,21 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
-# --- סעיף תלויות לפיתוח (Dev Dependencies) ---
-# חבילות שמשמשות רק לבדיקות וניתוח קוד
+
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^6.0.0
 
-# --- סעיף הגדרות פלאטר (Flutter Specific Settings) ---
-# זהו המקום הנכון להגדרות כמו assets, fonts וכו'.
+
+
 flutter:
-  
-  # שורה זו מפעילה את השימוש באייקונים של Material Design
+
+
   uses-material-design: true
 
-  # כאן מגדירים את ה-assets (נכסים) של האפליקציה, כמו תמונות וקבצי שמע
+
   assets:
     - assets/audio/
-
-  # דוגמאות להוספת פונטים (לא בשימוש כרגע בפרויקט)
-  # fonts:
-  #   - family: Schyler
-  #     fonts:
-  #       - asset: fonts/Schyler-Regular.ttf
-  #       - asset: fonts/Schyler-Italic.ttf
-  #         style: italic

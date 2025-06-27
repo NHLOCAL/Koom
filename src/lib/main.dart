@@ -10,19 +10,16 @@ import 'screens/alarm_ring_screen.dart';
 import 'models/alarm_model.dart';
 import 'services/background_service.dart';
 
-// מפתח גלובלי לגישה ל-Navigator מהרקע
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // בקשת הרשאות
-  await Permission.notification.isDenied.then((value) {
-    if (value) {
-      Permission.notification.request();
-    }
-  });
 
-  // אתחול שירות הרקע
+  await [
+    Permission.notification,
+    Permission.scheduleExactAlarm,
+  ].request();
+
   await initializeService();
 
   runApp(const MyApp());
@@ -48,7 +45,7 @@ class MyApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         supportedLocales: [
-          const Locale('he', 'IL'), // Hebrew
+          const Locale('he', 'IL'),
         ],
         locale: const Locale('he', 'IL'),
         debugShowCheckedModeBanner: false,
@@ -70,7 +67,7 @@ class MyApp extends StatelessWidget {
               },
             );
           }
-          return null; // Let routes handle it
+          return null;
         },
       ),
     );
