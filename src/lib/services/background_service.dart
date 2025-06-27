@@ -34,7 +34,7 @@ Future<void> initializeService() async {
       isForegroundMode: true,
       autoStart: true,
       notificationChannelId: 'alarm_channel',
-      initialNotificationTitle: 'WakeWise פעיל',
+      initialNotificationTitle: 'קום פעיל',
       initialNotificationContent: 'השעונים המעוררים שלך מוגדרים.',
       foregroundServiceNotificationId: 888,
     ),
@@ -63,5 +63,5 @@ void onStart(ServiceInstance service) {
     service.stopSelf();
   });
 
-  debugPrint("שירות הרקע של WakeWise התחיל.");
+  debugPrint("שירות הרקע של קום התחיל.");
 }
