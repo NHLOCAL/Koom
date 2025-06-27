@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -19,9 +20,7 @@ Future<void> _requestPermissions() async {
     await Permission.notification.request();
   }
 
-  // Special handling for SCHEDULE_EXACT_ALARM
   if (await Permission.scheduleExactAlarm.isDenied) {
-    // This will open the app settings for the user to grant the permission.
     await Permission.scheduleExactAlarm.request();
   }
 }
@@ -29,15 +28,17 @@ Future<void> _requestPermissions() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // It's important to initialize NotificationService first to set up listeners.
   await NotificationService().init();
 
-  // Request permissions and initialize background service only on supported platforms
   if (Platform.isAndroid || Platform.isIOS) {
     await _requestPermissions();
     await initializeService();
+    // Start the service explicitly after configuring it.
+    await FlutterBackgroundService().startService();
   } else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    // For desktop, only the background service with timer is needed.
     await initializeService();
+    await FlutterBackgroundService().startService();
   }
 
   runApp(const MyApp());
@@ -57,19 +58,19 @@ class MyApp extends StatelessWidget {
           primarySwatch: Colors.blue,
           visualDensity: VisualDensity.adaptivePlatformDensity,
         ),
-        localizationsDelegates: [
+        localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        supportedLocales: [
-          const Locale('he', 'IL'),
+        supportedLocales: const [
+          Locale('he', 'IL'),
         ],
         locale: const Locale('he', 'IL'),
         debugShowCheckedModeBanner: false,
         initialRoute: '/',
         routes: {
-          '/': (context) => HomeScreen(),
+          '/': (context) => const HomeScreen(),
           '/ring': (context) {
             final alarmId =
                 ModalRoute.of(context)!.settings.arguments as String;

@@ -3,23 +3,37 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
-import 'notification_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 Future<void> initializeService() async {
   final service = FlutterBackgroundService();
 
-  // Initialize notification service to ensure channel is created.
-  await NotificationService().init();
+  // Define the notification channel here to be used by the background service.
+  // This is the crucial fix for the "Bad notification for startForeground" crash.
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'alarm_channel', // id
+    'Alarms', // title
+    description: 'Channel for alarm notifications', // description
+    importance:
+        Importance.max, // importance must be high for foreground services
+    sound: RawResourceAndroidNotificationSound('alarm_sound'),
+    playSound: true,
+  );
+
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(channel);
 
   await service.configure(
     androidConfiguration: AndroidConfiguration(
       onStart: onStart,
       isForegroundMode: true,
       autoStart: true,
-      // This notification is required for a foreground service on Android.
-      // It lets the user know the app is running in the background.
-      notificationChannelId:
-          'alarm_channel', // Must match the one in NotificationService
+      notificationChannelId: 'alarm_channel',
       initialNotificationTitle: 'WakeWise פעיל',
       initialNotificationContent: 'השעונים המעוררים שלך מוגדרים.',
       foregroundServiceNotificationId: 888,
@@ -35,8 +49,6 @@ Future<void> initializeService() async {
 void onStart(ServiceInstance service) {
   DartPluginRegistrant.ensureInitialized();
 
-  // If you are using flutter_background_service for Android,
-  // it is better to listen for events from the UI.
   if (service is AndroidServiceInstance) {
     service.on('setAsForeground').listen((event) {
       service.setAsForegroundService();
@@ -51,10 +63,5 @@ void onStart(ServiceInstance service) {
     service.stopSelf();
   });
 
-  // The main logic for scheduling alarms is handled by `NotificationService`
-  // using `zonedSchedule`. This background service's primary role is to keep
-  // the app process alive so alarms are not missed, which is a common issue
-  // on some Android manufacturer devices (like Xiaomi, Huawei, etc.).
-  // The periodic timer that was here before was inefficient and buggy.
   debugPrint("שירות הרקע של WakeWise התחיל.");
 }
