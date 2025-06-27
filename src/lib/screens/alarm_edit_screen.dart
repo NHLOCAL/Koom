@@ -105,15 +105,21 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
             // ימי חזרה
             Text('חזרה בימים', style: Theme.of(context).textTheme.titleLarge),
             SizedBox(height: 10),
-            ToggleButtons(
-              isSelected: _selectedDays,
-              onPressed: (index) {
-                setState(() {
-                  _selectedDays[index] = !_selectedDays[index];
-                });
-              },
-              borderRadius: BorderRadius.circular(10),
-              children: _dayLabels.map((day) => Text(day)).toList(),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ToggleButtons(
+                isSelected: _selectedDays,
+                onPressed: (index) {
+                  setState(() {
+                    _selectedDays[index] = !_selectedDays[index];
+                  });
+                },
+                borderRadius: BorderRadius.circular(10),
+                children: _dayLabels.map((day) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: Text(day),
+                )).toList(),
+              ),
             ),
             SizedBox(height: 30),
 
