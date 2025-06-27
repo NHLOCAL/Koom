@@ -28,14 +28,6 @@ dependencies:
 
 
 
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-
-  flutter_lints: ^6.0.0
-
-
-
 flutter:
 
 
@@ -45,3 +37,16 @@ flutter:
   assets:
     - assets/audio/
     - assets/images/ # Added for image puzzles
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  min_sdk_android: 21 # android min sdk min:16, default 21
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: "^0.13.1"
