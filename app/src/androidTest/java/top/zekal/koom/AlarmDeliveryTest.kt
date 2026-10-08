@@ -9,7 +9,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Real AlarmManager → PendingIntent → BroadcastReceiver path, not a mocked timer. */
+/** AlarmManager → PendingIntent.getForegroundService, without a visible Activity. */
 @RunWith(AndroidJUnit4::class)
 class AlarmDeliveryTest {
     @Test fun exactAlarmDeliversWithNoVisibleActivity() {
@@ -36,6 +36,6 @@ class AlarmDeliveryTest {
         }
         store.dismiss(id)
         context.startService(Intent(context, RingService::class.java))
-        assertTrue("AlarmManager never reached AlarmReceiver", received)
+        assertTrue("AlarmManager never reached RingService", received)
     }
 }

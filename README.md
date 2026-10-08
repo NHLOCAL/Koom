@@ -5,7 +5,7 @@
 ## למה זה אמור לצלצל גם כשהאפליקציה סגורה?
 
 - `AlarmManager.setAlarmClock()` רושם השכמה אצל Android באמצעות `PendingIntent.getBroadcast()`. אין תלות בחיי `MainActivity`.
-- `AlarmReceiver` נפתח על ידי Android כשמגיע זמן ההשכמה, רושם אירוע מקומי, מציג התראה ומפעיל `RingService` עם סוג `mediaPlayback`.
+- Android מפעיל ישירות את `RingService` באמצעות `PendingIntent.getForegroundService()` שמוגדר דרך `AlarmManager.setAlarmClock()`. לא נדרש תהליך אפליקציה חי או שרשרת BroadcastReceiver → שירות.
 - `RingService` ממשיך לנגן בלולאה כשהמסך נעול. כשהחידה נפתרת השירות נפסק ומשחרר את כל המשאבים.
 - זמן ההתראה הבא מחושב מחדש לאחר אתחול המכשיר, עדכון אפליקציה, שינוי שעה/אזור זמן ואישור הרשאות.
 - השעונים וקובצי המנגינות נמצאים ב-Device Protected Storage כדי שאפשר יהיה לשחזר תזמון עוד לפני פתיחת הנעילה הראשונה אחרי אתחול.
@@ -51,7 +51,7 @@
 - Kotlin, Jetpack Compose, Material 3, AlarmManager, BroadcastReceiver, MediaPlayer.
 - Android SDK 37.0, target 36, min 26. AGP 9.4.0, Kotlin plugin 2.4.10, Gradle 9.6.0, JDK 17.
 - `gradle testDebugUnitTest assembleDebug lintDebug assembleDebugAndroidTest`.
-- GitHub Actions מריץ בדיקות יחידה, קומפילציה ולינט, וב-PR מפעיל גם Android Emulator API 35 לבדיקות Instrumentation ושרשרת מסירת שעון דרך AlarmManager.
+- GitHub Actions מריץ יחידה, קומפילציה ולינט, וב-PR בודק גם API 31 (Android 12) ו-API 35 (Android 15). לאחר בדיקות המכשיר, סקריפט ADB קובע שעון, מסיים את תהליך האפליקציה באמצעות `am kill` ובודק שהמערכת מפעילה אותו מחדש לצלצול.
 
 **חבילת הבדיקה והגרסה להפצה נפרדות בכוונה:**
 - `assembleDebug` יוצר את `top.zekal.koom.beta` בשם "קום (בדיקה)". ניתן להתקין אותה לצד ההתקנה הקיימת בלי למחוק את השעונים.
@@ -68,3 +68,11 @@
 - [Material 3 navigation patterns](https://developer.android.com/develop/ui/compose/components/navigation-bar)
 
 License: LICENSE
+
+
+## ניקוי RAM וגבולות Android
+
+- ניקוי זיכרון רגיל אמור להשאיר את השעון הרשום ב-AlarmManager. ה-PendingIntent אינו תלוי בתהליך של האפליקציה.
+- מנהל יישומים של יצרן יכול לבצע Force Stop או להכניס את האפליקציה למצב Restricted, ואז גם שעון מדויק עלול להתבטל. אי אפשר לעקוף זאת בקוד של אפליקציה רגילה; הפעל Autostart, אפשר פעילות ברקע והחרג את Koom ממנקה הזיכרון לפי הגדרות היצרן.
+- באפשרותך לבדוק את ההבדל באמצעות `adb shell dumpsys alarm` לפני ואחרי ניקוי זיכרון ו-`adb shell dumpsys package top.zekal.koom.beta` לזיהוי מצב `stopped`. רשומות `RECEIVED` ו-`AUDIO_STARTED` נמצאות ב-Logcat בתג `KoomDelivery`.
+- טלפון כבוי לחלוטין אינו יכול להריץ אפליקציה רגילה. אם שעון המכשיר המובנה מעיר מכשיר כבוי באמצעות RTC, זו יכולת יצרן/חומרה שאינה נגישה ל-Koom דרך API ציבורי רגיל. מסך כבוי ו-Doze כן נתמכים עקרונית.

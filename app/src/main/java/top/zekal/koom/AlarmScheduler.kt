@@ -23,12 +23,21 @@ class AlarmScheduler(context: Context) {
     fun nextSystemAlarmMillis(): Long? = manager.nextAlarmClock?.triggerTime
 
     fun cancel(id: String) {
-        val pending = alarmIntent(id, PendingIntent.FLAG_NO_CREATE)
+        cancelPending(alarmIntent(id, PendingIntent.FLAG_NO_CREATE))
+        // Remove alarms registered by v2.1's BroadcastReceiver before this upgrade.
+        cancelLegacyBroadcast(id)
+        diagnostics.record("CANCELLED", id)
+    }
+
+    private fun cancelPending(pending: PendingIntent?) {
         if (pending != null) {
             manager.cancel(pending)
             pending.cancel()
         }
-        diagnostics.record("CANCELLED", id)
+    }
+
+    private fun cancelLegacyBroadcast(id: String) {
+        cancelPending(legacyBroadcast(id, PendingIntent.FLAG_NO_CREATE))
     }
 
     fun update(alarm: Alarm): Boolean {
@@ -91,6 +100,8 @@ class AlarmScheduler(context: Context) {
                 Intent(app, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            // Prevent a previously registered v2 BroadcastReceiver from firing as well.
+            cancelLegacyBroadcast(id)
             val trigger = requireNotNull(alarmIntent(id, PendingIntent.FLAG_UPDATE_CURRENT))
             manager.setAlarmClock(AlarmManager.AlarmClockInfo(timeMillis, show), trigger)
             diagnostics.record("SCHEDULED", id, timeMillis.toString())
@@ -103,7 +114,20 @@ class AlarmScheduler(context: Context) {
         }
     }
 
+    /**
+     * The OS itself creates the foreground service at alarm time.
+     * Android 12's user-requested exact-alarm exemption applies to this start.
+     * No broadcast → startForegroundService trampoline is needed.
+     */
     private fun alarmIntent(id: String, flag: Int): PendingIntent? =
+        PendingIntent.getForegroundService(app, 0,
+            Intent(app, RingService::class.java).apply {
+                action = ACTION_FIRE
+                data = Uri.parse("koom://alarm/" + Uri.encode(id))
+                putExtra(EXTRA_ALARM_ID, id)
+            }, flag or PendingIntent.FLAG_IMMUTABLE)
+
+    private fun legacyBroadcast(id: String, flag: Int): PendingIntent? =
         PendingIntent.getBroadcast(app, 0,
             Intent(app, AlarmReceiver::class.java).apply {
                 action = ACTION_FIRE

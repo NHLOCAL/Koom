@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Debug-only entry point for verifying OS alarm delivery after process death. -->
+    <application>
+        <receiver
+            android:name="top.zekal.koom.DebugAlarmTestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="top.zekal.koom.DEBUG_SCHEDULE_ALARM"/>
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

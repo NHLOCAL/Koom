@@ -35,7 +35,34 @@ class RingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val log = AlarmDiagnostics(this)
         try {
-            val ids = AlarmStore(this).activeIds()
+            val store = AlarmStore(this)
+            val triggerId = if (intent?.action == AlarmScheduler.ACTION_FIRE)
+                intent.getStringExtra(AlarmScheduler.EXTRA_ALARM_ID) else null
+
+            if (triggerId != null) {
+                val candidate = store.byId(triggerId)
+                if (candidate?.enabled == true) {
+                    // The system started this service via PendingIntent.getForegroundService.
+                    // Promote it immediately, BEFORE any durable writes or rescheduling.
+                    startForeground(
+                        AlarmNotification.NOTIFICATION_ID,
+                        AlarmNotification.build(this, candidate.label)
+                    )
+                    log.record("SERVICE_FOREGROUND", triggerId)
+                    // The alarm was delivered by Android even if our entire process was absent.
+                    log.record("RECEIVED", triggerId)
+                    val accepted = store.acceptTrigger(triggerId)
+                    if (accepted != null && accepted.daysMask != 0) {
+                        if (!AlarmScheduler(this).scheduleFollowingDelivery(accepted)) {
+                            log.record("RESCHEDULE_FAILED", triggerId)
+                        }
+                    }
+                } else {
+                    log.record("IGNORED", triggerId, "Alarm was disabled or deleted")
+                }
+            }
+
+            val ids = store.activeIds()
             if (ids.isEmpty()) {
                 log.record("STOPPED")
                 stopForeground(STOP_FOREGROUND_REMOVE)
@@ -43,11 +70,13 @@ class RingService : Service() {
                 stopSelf()
                 return START_NOT_STICKY
             }
+
             val id = ids.first()
-            val alarm = AlarmStore(this).byId(id)
+            val alarm = store.byId(id)
             val label = alarm?.label ?: getString(R.string.ringing_title)
             startForeground(AlarmNotification.NOTIFICATION_ID, AlarmNotification.build(this, label))
             log.record("SERVICE_FOREGROUND", id)
+
             if (player == null || currentAlarmId != id) {
                 try { player?.stop() } catch (_: Exception) { }
                 player?.release()
@@ -67,6 +96,8 @@ class RingService : Service() {
                 val label = active?.let { AlarmStore(this).byId(it)?.label }
                     ?: getString(R.string.ringing_title)
                 AlarmNotification.postFallback(this, label)
+                // Keep the fallback notification when the service is removed.
+                stopForeground(STOP_FOREGROUND_DETACH)
             } catch (_: Exception) { }
             stopSelf()
             return START_NOT_STICKY
