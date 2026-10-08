@@ -25,6 +25,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Installs alongside an older debug/release Koom without deleting its data.
+            applicationIdSuffix = ".beta"
+            versionNameSuffix = "-beta"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
