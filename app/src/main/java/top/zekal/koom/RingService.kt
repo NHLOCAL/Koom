@@ -21,6 +21,7 @@ import androidx.core.content.ContextCompat
  */
 class RingService : Service() {
     private var player: MediaPlayer? = null
+    private var currentAlarmId: String? = null
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -47,7 +48,16 @@ class RingService : Service() {
             val label = alarm?.label ?: getString(R.string.ringing_title)
             startForeground(AlarmNotification.NOTIFICATION_ID, AlarmNotification.build(this, label))
             log.record("SERVICE_FOREGROUND", id)
-            if (player == null) startPlayback(alarm, id)
+            if (player == null || currentAlarmId != id) {
+                try { player?.stop() } catch (_: Exception) { }
+                player?.release()
+                player = null
+                vibrator?.cancel()
+                if (wakeLock?.isHeld == true) wakeLock?.release()
+                wakeLock = null
+                currentAlarmId = id
+                startPlayback(alarm, id)
+            }
             return START_STICKY
         } catch (e: Exception) {
             log.record("SERVICE_FAILED", detail = e.javaClass.simpleName + ": " + e.message)
@@ -128,6 +138,7 @@ class RingService : Service() {
         try { player?.stop() } catch (_: Exception) { }
         player?.release()
         player = null
+        currentAlarmId = null
         vibrator?.cancel()
         vibrator = null
         if (wakeLock?.isHeld == true) wakeLock?.release()

@@ -17,8 +17,9 @@ class AlarmStore(context: Context) {
     private val app = context.applicationContext
     private val prefs = app.createDeviceProtectedStorageContext()
         .getSharedPreferences("koom_v2", Context.MODE_PRIVATE)
-    private val oldV2 = app.getSharedPreferences("koom_v2", Context.MODE_PRIVATE)
-    private val flutter = app.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+    // Credential-protected preferences must not be opened during direct boot.
+    private val oldV2 by lazy { app.getSharedPreferences("koom_v2", Context.MODE_PRIVATE) }
+    private val flutter by lazy { app.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE) }
 
     init {
         synchronized(lock) {

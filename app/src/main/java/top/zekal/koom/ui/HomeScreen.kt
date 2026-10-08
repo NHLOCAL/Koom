@@ -287,7 +287,7 @@ private fun SettingsTab(
                 )
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(onClick = onBatterySettings) {
-                    Icon(Icons.Default.BatterySettingsNew, contentDescription = null)
+                    Icon(Icons.Default.BatteryFull, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text("בדוק הגבלות סוללה")
                 }
