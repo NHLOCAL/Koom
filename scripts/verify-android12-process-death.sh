@@ -6,11 +6,22 @@ PACKAGE="top.zekal.koom.beta"
 COMPONENT="$PACKAGE/top.zekal.koom.DebugAlarmTestReceiver"
 ALARM_ID="__koom_diagnostic_test__"
 
+echo "== Start app once to leave Android's stopped-package state =="
+adb shell am start -n "$PACKAGE/top.zekal.koom.MainActivity" >/dev/null
+adb shell input keyevent KEYCODE_HOME
+sleep 1
+
 echo "== Scheduling exact system alarm via debug broadcast =="
 adb logcat -c
-RESULT="$(adb shell am broadcast -n "$COMPONENT" -a top.zekal.koom.DEBUG_SCHEDULE_ALARM)"
-echo "$RESULT"
-echo "$RESULT" | grep -q "data=\"SCHEDULED\""
+adb shell am broadcast -n "$COMPONENT" -a top.zekal.koom.DEBUG_SCHEDULE_ALARM
+sleep 1
+PRE_LOGS="$(adb logcat -d -s KoomDelivery:I '*:S' | tr -d '\r')"
+if ! grep -Fq "SCHEDULED ($ALARM_ID)" <<< "$PRE_LOGS"; then
+  echo "FAIL: debug receiver did not register an exact alarm"
+  echo "$PRE_LOGS" | tail -n 60
+  adb shell dumpsys package "$PACKAGE" | grep "stopped=" || true
+  exit 1
+fi
 
 echo "== Checking AlarmManager owns this alarm BEFORE killing the process =="
 ALARM_DUMP="$(adb shell dumpsys alarm)"

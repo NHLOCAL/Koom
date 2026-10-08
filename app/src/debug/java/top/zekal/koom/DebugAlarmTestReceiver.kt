@@ -12,9 +12,9 @@ import android.content.Intent
 class DebugAlarmTestReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION) return
-        val success = AlarmScheduler(context).scheduleTest(17_000L)
-        setResultCode(if (success) 1 else 0)
-        setResultData(if (success) "SCHEDULED" else "FAILED")
+        // Exact alarm scheduling itself records success/failure in KoomDelivery.
+        // Do not rely on ordered-broadcast result codes from adb. 
+        AlarmScheduler(context).scheduleTest(17_000L)
     }
 
     companion object {
