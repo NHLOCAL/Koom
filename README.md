@@ -1,79 +1,67 @@
-# קום | Koom 2.0
+# קום | Koom 2.1
 
-**שעון מעורר שלא נותן לך לחזור לישון בלי לפתור חידה.**
+שעון מעורר מקורי ל-Android, בלי Flutter ובלי שירות רקע שרץ כל היום.
 
-גרסה חדשה מהיסוד ל-Android: Kotlin מקורי, Jetpack Compose, Material 3 וצלצול המופעל על ידי מערכת ההפעלה.
+## למה זה אמור לצלצל גם כשהאפליקציה סגורה?
 
-## יכולות
+- `AlarmManager.setAlarmClock()` רושם השכמה אצל Android באמצעות `PendingIntent.getBroadcast()`. אין תלות בחיי `MainActivity`.
+- `AlarmReceiver` נפתח על ידי Android כשמגיע זמן ההשכמה, רושם אירוע מקומי, מציג התראה ומפעיל `RingService` עם סוג `mediaPlayback`.
+- `RingService` ממשיך לנגן בלולאה כשהמסך נעול. כשהחידה נפתרת השירות נפסק ומשחרר את כל המשאבים.
+- זמן ההתראה הבא מחושב מחדש לאחר אתחול המכשיר, עדכון אפליקציה, שינוי שעה/אזור זמן ואישור הרשאות.
+- השעונים וקובצי המנגינות נמצאים ב-Device Protected Storage כדי שאפשר יהיה לשחזר תזמון עוד לפני פתיחת הנעילה הראשונה אחרי אתחול.
+- סירוב של מערכת ההפעלה להפעיל Foreground Service גורר ניסיון להציג התראה קולית חלופית, ולא כישלון שקט.
 
-- יצירה, עריכה, מחיקה, ביטול והפעלה של שעונים חד פעמיים וחוזרים.
-- שעון מערכת אמיתי באמצעות AlarmManager.setAlarmClock, בלי polling ובלי שירות קבוע.
-- שירות צלצול עצמאי רק בזמן השכמה, צלצול בלולאה, רטט ומסך נעילה.
-- שלושה אתגרי חשבון, שלוש סדרות, או פאזל תמונה 3×3 עם החלפת אריחים.
-- ממשק עברי מלא RTL עם עיצוב Material 3 כהה.
-- שמירת שעונים סינכרונית, טיפול באתחול, שינוי שעה/אזור זמן, עדכון אפליקציה.
-- מיגרציה של שעונים מהאחסון של Flutter, תוך שמירת הנתונים המקוריים.
-- ללא רשת, ללא שרת, ללא חשבון וללא ספריות צד שלישי למשימות רקע.
+**מגבלה חשובה:** אף אפליקציה רגילה לא יכולה לבטל את ההגבלה של Force Stop ב-Android. אחרי עצירה כפויה דרך הגדרות מערכת השעונים עשויים להתבטל עד לפתיחת האפליקציה מחדש. חלק מהיצרנים מוסיפים ניהול סוללה אגרסיבי: פתח את קום > הגדרות > בדוק הגבלות סוללה, והגדר פעילות ברקע לפי צורך. אין להסתמך על השכמה לפני בדיקת המכשיר שלך.
 
-## למה Android Native?
+## צלילים
 
-אמינות ההשכמה נשענת על ממשקי Android ולא על תזמון Dart, מנוע Flutter או תוסף רקע. Kotlin מאפשר מגע ישיר עם AlarmManager, BroadcastReceiver, MediaPlayer ושירות foreground. 
+- כברירת מחדל Koom משתמשת ברינגטון הרגיל של הטלפון, במקום אזעקת הסירנה של הגרסה הישנה.
+- בעריכת כל שעון ניתן לבחור רינגטון קיים (`RingtoneManager.ACTION_RINGTONE_PICKER`).
+- ניתן לבחור קובץ שמע (`ACTION_OPEN_DOCUMENT`, סוג `audio/*`).
+- המנגינה נבדקת ומועתקת לאחסון הפרטי של האפליקציה, עד 25MB, כדי שלא תזדקק לגישה לאחסון חיצוני בזמן ההשכמה.
+- יש כפתור האזנה שאפשר להפסיק, והנגינה המקדימה מוגבלת ל-9 שניות.
+- אם קובץ מותאם אישית אינו זמין, יש מעבר לרינגטון המערכת וניסיון התראה קולית חלופית.
 
-## איך לבנות
+## חידות פשוטות
 
-- נדרש JDK 17, Android SDK Platform 37, Build Tools 36.0.0.
-- גרסאות: AGP 9.4.0, Gradle 9.6.0, Kotlin Compose 2.4.10.
-- Android 8.0 ומעלה, חבילת Android קיימת: top.zekal.koom.
-- פתחו את התיקייה הראשית כפרויקט Android Studio תואם, או התקינו Gradle והפעילו:
+- **ידע כללי:** מאגר שאלות בעברית, שלוש תשובות, בחירה אחת.
+- **היגיון:** שאלות יומיומיות קצרות עם תשובות מרובות.
+- **חשבון / סדרות:** שאלה אחת במספרים קטנים במקום שלושה סבבים.
+- **תמונה:** פאזל 2×2 במקום 3×3.
+- החידה החדשה כברירת מחדל היא שאלת ידע פשוטה. בחירות קיימות מהגרסה הקודמת נשמרות.
 
-```shell
-gradle testDebugUnitTest
-gradle assembleDebug
-gradle lintDebug
-```
+## מסכים
 
-CI ב-GitHub Actions מריץ Unit Tests, build ו-lint בענף השכתוב. קובץ APK נוצר ב-app/build/outputs/apk/debug/app-debug.apk.
+- **שעונים:** כל השעונים, עריכה והפעלה באמצעות סמלים וכפתורים.
+- **הגדרות:** מצב הרשאות, מסך נעילה והכוונה להגדרות הסוללה.
+- **בדיקה:** בדיקת צלצול בעוד 20 שניות ויומן אירועים מקומי (ללא שליחת מידע לשרת).
 
-**חשוב:** APK יכול לעדכן התקנה קיימת רק אם החתימה זהה לחתימה המקורית. אין להסיר את ההתקנה הקודמת לפני גיבוי. אימות מיגרציה ושירות הצלצול דורש מכשיר Android אמיתי.
+## איך לבדוק באופן מעשי
 
-## תכנון המערכת
+1. התקן Koom 2.1, פתח אותה ואפשר התראות והצגת מסך מלא.
+2. עבור ל-**בדיקה**, לחץ על **בדיקת צלצול בעוד 20 שניות**.
+3. צא למסך הבית של הטלפון או נעל את המסך. אין צורך להשאיר את Koom ברקע הגלוי.
+4. אם אין צלצול, פתח את Koom > **בדיקה**. יומן הפעילות מתעד: `SCHEDULED`, `RECEIVED`, `SERVICE_FOREGROUND`, `AUDIO_STARTED`, או אירועי כשל. כך ניתן לזהות אם Android לא מסר את ההשכמה או אם מערכת הצלצול נכשלה.
+5. בצע בדיקה נוספת לאחר אתחול המכשיר ונעילה. בדוק שוב בתנאי חיסכון בסוללה.
 
-| קובץ | תפקיד |
-|---|---|
-| Alarm.kt, AlarmRules.kt | מודל, חישוב הימים והשעה הבאה |
-| AlarmStore.kt | אחסון מקומי, מיגרציה וקבלת התראה אטומית |
-| AlarmScheduler.kt | setAlarmClock ותזמון מחדש |
-| AlarmReceiver.kt, SystemReceiver.kt | קליטת השכמה ואירועי מערכת |
-| RingService.kt, RingActivity.kt | צלצול עצמאי ומסך הנעילה |
-| PuzzleEngine.kt | לוגיקת חידות טהורה |
-| MainActivity.kt, ui/ | מסכי Compose, הרשאות ו-RTL |
+אל תבדוק באמצעות **Force Stop** של Koom בהגדרות Android: פעולה זו מוגדרת במערכת כעצירה מכוונת ומבטלת התראות, ולא כסגירה רגילה של האפליקציה.
 
-## מגבלות ופערי תאימות
+## בנייה, CI ובדיקות
 
-- הגרסה החדשה מיועדת ל-Android בלבד; לא נבנו גרסאות iOS/desktop/web.
-- נשמר פאזל התמונה המובנית; אין עדיין יבוא תמונה אישית.
-- ב-Android 14 ומעלה ייתכן צורך לאפשר full-screen intents בהגדרות.
-- הרשאות exact alarms ו-post notifications אינן ניתנות לכפייה; האפליקציה מציגה פעולת תיקון.
-- אין מניעה מערכתית של Force Stop או הסרת האפליקציה; גם שעון מקורי אינו יכול להבטיח התעוררות בכל יצרן ומצב סוללה.
-- מספר שעונים שמצלצלים במקביל מנוהלים בתור עד שכולם נפתרים.
-- בשעת קפיצה של שעון קיץ, זמן מקומי שאינו קיים מועבר לזמן החוקי הבא על פי Java Time.
+- Kotlin, Jetpack Compose, Material 3, AlarmManager, BroadcastReceiver, MediaPlayer.
+- Android SDK 37.0, target 36, min 26. AGP 9.4.0, Kotlin plugin 2.4.10, Gradle 9.6.0, JDK 17.
+- `gradle testDebugUnitTest assembleDebug lintDebug assembleDebugAndroidTest`.
+- GitHub Actions מריץ בדיקות יחידה, קומפילציה ולינט, וב-PR מפעיל גם Android Emulator API 35 לבדיקות Instrumentation ושרשרת מסירת שעון דרך AlarmManager.
 
-## בדיקות חובה לפני הפצה
+**התקנת עדכון על גבי גרסה קיימת דורשת אותה חתימת APK.** התקנה חדשה של debug APK בחתימה שונה לא יכולה לשדרג התקנה קיימת; אין להסיר התקנה עם מידע חשוב בלי גיבוי קודם.
 
-1. התקנת APK מעודכן עם חתימה זהה על גבי גרסת Flutter ובדיקת מעבר שעונים.
-2. צלצול אמיתי בעוד 2 דקות כאשר המסך נעול והאפליקציה אינה פתוחה.
-3. צלצול אחרי reboot, אחרי שינוי timezone, ובהיעדר חיבור רשת.
-4. הרשאות נחסמות: הודעות, exact alarm ו-full-screen; בדיקת הטיפול בחסימה.
-5. שעונים חופפים, שעה חד פעמית, חזרה, חידות, מחיקה וכיבוי.
-6. מספר מכשירים וגרסאות Android, לרבות מצב חיסכון בסוללה.
+### מקורות תכנון רשמיים
 
-## מקורות לתכנון
-
-- https://developer.android.com/develop/background-work/services/alarms
-- https://developer.android.com/about/versions/14/changes/schedule-exact-alarms
-- https://developer.android.com/about/versions/14/behavior-changes-14
-- https://developer.android.com/develop/background-work/services/fgs/service-types
-- https://developer.android.com/build/releases/agp-9-4-0-release-notes
-- https://developer.android.com/develop/ui/compose/setup-compose-dependencies-and-compiler
+- [Schedule alarms](https://developer.android.com/develop/background-work/services/alarms)
+- [Doze and App Standby](https://developer.android.com/training/monitoring-device-state/doze-standby)
+- [Android 15 stopped-state behavior](https://developer.android.com/about/versions/15/behavior-changes-all)
+- [RingtoneManager](https://developer.android.com/reference/android/media/RingtoneManager)
+- [Open documents safely](https://developer.android.com/guide/components/intents-common)
+- [Material 3 navigation patterns](https://developer.android.com/develop/ui/compose/components/navigation-bar)
 
 License: LICENSE

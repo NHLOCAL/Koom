@@ -6,21 +6,32 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 
-/** One-shot alarms are recomputed after reboot, app updates, clock and zone changes. */
+/**
+ * No always-on service or periodic wakeups. Android broadcasts reschedule
+ * alarm clock intents when the device is rebooted or its wall-clock changes.
+ */
 class SystemReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         try {
             when (intent.action) {
-                Intent.ACTION_BOOT_COMPLETED -> AlarmStore(context).clearStaleRingingAfterBoot()
+                Intent.ACTION_LOCKED_BOOT_COMPLETED -> {
+                    AlarmStore(context).clearStaleRingingAfterBoot()
+                }
+                Intent.ACTION_BOOT_COMPLETED,
                 Intent.ACTION_MY_PACKAGE_REPLACED,
                 Intent.ACTION_TIME_CHANGED,
                 Intent.ACTION_TIMEZONE_CHANGED,
                 AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED -> Unit
                 else -> return
             }
-            AlarmScheduler(context).reconcile()
+            val successful = AlarmScheduler(context).reconcile()
+            AlarmDiagnostics(context).record(
+                if (successful) "SYSTEM_RESCHEDULED" else "RESCHEDULE_FAILED",
+                detail = intent.action.orEmpty()
+            )
         } catch (e: Exception) {
-            Log.e("KoomSystem", "Unable to reschedule alarms", e)
+            AlarmDiagnostics(context).record("RESCHEDULE_FAILED", detail = e.message.orEmpty())
+            Log.e("KoomSystem", "Unable to restore scheduled alarms", e)
         }
     }
 }

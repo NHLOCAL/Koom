@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Koom is an alarm-clock app, not a background sync or periodic work app. -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -18,9 +19,7 @@
         android:allowBackup="true"
         android:fullBackupContent="true"
         android:supportsRtl="true">
-        <activity
-            android:name=".MainActivity"
-            android:exported="true">
+        <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -29,13 +28,17 @@
         <activity
             android:name=".RingActivity"
             android:exported="false"
+            android:directBootAware="true"
             android:launchMode="singleTop"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:excludeFromRecents="true"/>
-        <receiver android:name=".AlarmReceiver" android:exported="false"/>
-        <receiver android:name=".SystemReceiver" android:exported="false">
+        <receiver android:name=".AlarmReceiver" android:exported="false"
+            android:directBootAware="true"/>
+        <receiver android:name=".SystemReceiver" android:exported="false"
+            android:directBootAware="true">
             <intent-filter>
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"/>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
                 <action android:name="android.intent.action.TIME_SET"/>
@@ -43,9 +46,8 @@
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"/>
             </intent-filter>
         </receiver>
-        <service
-            android:name=".RingService"
-            android:exported="false"
+        <service android:name=".RingService" android:exported="false"
+            android:directBootAware="true"
             android:stopWithTask="false"
             android:foregroundServiceType="mediaPlayback"/>
     </application>

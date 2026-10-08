@@ -5,23 +5,43 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 
-/**
- * The alarm is accepted durably before audio starts. Even if the process exits,
- * the queued ring is still present when the user opens the app again.
- */
+/** Android delivers the alarm-clock PendingIntent even after normal process termination. */
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != AlarmScheduler.ACTION_FIRE) return
         val id = intent.getStringExtra(AlarmScheduler.EXTRA_ALARM_ID) ?: return
+        val log = AlarmDiagnostics(context)
+        log.record("RECEIVED", id)
         try {
-            val store = AlarmStore(context)
-            val alarm = store.acceptTrigger(id) ?: return
-            if (alarm.daysMask != 0) {
-                AlarmScheduler(context).scheduleFollowingDelivery(alarm)
+            val alarm = AlarmStore(context).acceptTrigger(id)
+            if (alarm == null) {
+                log.record("IGNORED", id, "Alarm was disabled or already delivered")
+                return
             }
-            RingService.start(context)
+            try {
+                if (AlarmNotification.post(context, alarm.label)) log.record("NOTIFIED", id)
+                else log.record("NOTIFICATION_BLOCKED", id)
+            } catch (e: Exception) {
+                log.record("NOTIFICATION_FAILED", id, e.javaClass.simpleName)
+            }
+
+            if (alarm.daysMask != 0 &&
+                !AlarmScheduler(context).scheduleFollowingDelivery(alarm)) {
+                log.record("RESCHEDULE_FAILED", id)
+            }
+
+            try {
+                RingService.start(context)
+                log.record("SERVICE_REQUESTED", id)
+            } catch (e: Exception) {
+                log.record("SERVICE_FAILED", id, e.javaClass.simpleName + ": " + e.message)
+                Log.e("KoomAlarm", "FGS start was rejected", e)
+                try { AlarmNotification.postFallback(context, alarm.label) }
+                catch (_: Exception) { }
+            }
         } catch (e: Exception) {
-            Log.e("KoomAlarm", "Unable to start delivered alarm", e)
+            log.record("RECEIVER_FAILED", id, e.javaClass.simpleName + ": " + e.message)
+            Log.e("KoomAlarm", "Alarm delivery failed", e)
         }
     }
 }

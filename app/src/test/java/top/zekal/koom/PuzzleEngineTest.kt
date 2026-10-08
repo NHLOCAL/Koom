@@ -47,6 +47,27 @@ class PuzzleEngineTest {
         assertEquals(tiles, twice)
     }
 
+    @Test fun curatedChoicesAreValidAndEasyToAnswer() {
+        for (kind in listOf(PuzzleKind.KNOWLEDGE, PuzzleKind.LOGIC)) {
+            assertTrue(PuzzleEngine.questionCount(kind) >= 15)
+            repeat(200) { seed ->
+                val q = PuzzleEngine.choices(kind, Random(seed))
+                assertTrue(q.question.isNotBlank())
+                assertEquals(3, q.options.distinct().size)
+                assertTrue(q.correctIndex in 0..2)
+                assertTrue(q.options[q.correctIndex].isNotBlank())
+            }
+        }
+    }
+
+    @Test fun imageCanUseEasierTwoByTwoGrid() {
+        repeat(100) { seed ->
+            val tiles = PuzzleEngine.shuffledTiles(Random(seed), gridSize = 2)
+            assertEquals((0..3).toSet(), tiles.toSet())
+            assertFalse(PuzzleEngine.solved(tiles))
+        }
+    }
+
     @Test fun identityImagePuzzleIsSolved() {
         assertTrue(PuzzleEngine.solved((0..8).toList()))
     }

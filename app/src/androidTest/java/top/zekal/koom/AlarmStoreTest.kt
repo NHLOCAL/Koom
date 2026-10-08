@@ -15,6 +15,8 @@ class AlarmStoreTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Before fun clear() {
+        context.createDeviceProtectedStorageContext()
+            .getSharedPreferences("koom_v2", 0).edit().clear().commit()
         context.getSharedPreferences("koom_v2", 0).edit().clear().commit()
         context.getSharedPreferences("FlutterSharedPreferences", 0).edit().clear().commit()
     }
@@ -63,6 +65,23 @@ class AlarmStoreTest {
         assertEquals("kept-id-123", alarms[0].id)
         assertEquals((1 shl 0) or (1 shl 3), alarms[0].daysMask)
         assertEquals(PuzzleKind.IMAGE, alarms[0].puzzle)
+    }
+
+    @Test fun migratesExistingVersion2AlarmsToDirectBootStorage() {
+        val alarm = Alarm(hour = 6, minute = 22, label = "אלול", soundLabel = "צלצול הטלפון")
+        val array = org.json.JSONArray().put(alarm.toJson()).toString()
+        context.getSharedPreferences("koom_v2", 0).edit().putString("alarms_v2", array).commit()
+        assertEquals(alarm, AlarmStore(context).byId(alarm.id))
+        assertEquals(array, context.createDeviceProtectedStorageContext()
+            .getSharedPreferences("koom_v2", 0).getString("alarms_v2", null))
+    }
+
+    @Test fun customSoundFieldsRoundTrip() {
+        val alarm = Alarm(hour = 10, minute = 9, soundFile = "abc123.audio",
+            soundLabel = "צלצול עדין", puzzle = PuzzleKind.KNOWLEDGE)
+        val store = AlarmStore(context)
+        store.upsert(alarm)
+        assertEquals(alarm, store.byId(alarm.id))
     }
 
     @Test fun deleteRemovesAlarmAndRingingQueue() {
