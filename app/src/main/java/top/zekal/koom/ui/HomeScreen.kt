@@ -1,6 +1,7 @@
 package top.zekal.koom.ui
 
 import androidx.compose.foundation.background
+import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -291,10 +292,7 @@ private fun SettingsTab(
                     Text("בדוק הגבלות סוללה")
                 }
                 Spacer(Modifier.height(10.dp))
-                Text("בדגמים עם ניהול יישומים אגרסיבי: אפשר פעילות ברקע או הפעלה אוטומטית " +
-                    "בהגדרות היצרן. אין צורך להשאיר את Koom פתוחה.",
-                    color = Palette.muted, fontSize = 13.sp
-                )
+                Text(manufacturerAutostartAdvice(), color = Palette.muted, fontSize = 13.sp)
             }
         }
         Spacer(Modifier.height(14.dp))
@@ -444,4 +442,26 @@ private fun eventDescription(stage: String): String = when (stage) {
     "STOPPED" -> "הצלצול הופסק"
     "IGNORED" -> "אירוע שעון לא פעיל"
     else -> stage
+}
+
+/** OEM task killers may force-stop apps independently of Android battery optimization. */
+private fun manufacturerAutostartAdvice(): String {
+    return when (Build.MANUFACTURER.lowercase(java.util.Locale.ROOT)) {
+        "xiaomi", "redmi", "poco" ->
+            "במכשירי Xiaomi/Redmi: הגדרות > יישומים > הרשאות > הפעלה אוטומטית. " +
+            "אפשר את Koom והחרג אותה ממנקה הזיכרון. בחלק מהדגמים ניתן לנעול אותה במסך היישומים האחרונים."
+        "samsung" ->
+            "במכשירי Samsung: טיפול במכשיר > סוללה > מגבלות שימוש ברקע > " +
+            "יישומים שלעולם אינם ישנים. הוסף את Koom והוצא אותה מיישומים בשינה עמוקה."
+        "huawei", "honor" ->
+            "במכשירי Huawei/Honor: הגדרות > סוללה > הפעלת יישומים, עבור לניהול ידני " +
+            "ואפשר הפעלה אוטומטית, הפעלה משנית ופעילות ברקע."
+        "oppo", "realme", "oneplus", "vivo", "iqoo" ->
+            "במכשיר זה בדוק בנוסף לאופטימיזציית סוללה את הגדרות הפעלה אוטומטית, " +
+            "פעילות ברקע ואת החרגת Koom ממנקה הזיכרון של היצרן."
+        else ->
+            "אם ניקוי ה-RAM עוצר גם שעונים מדויקים: חפש במנהל היישומים " +
+            "הפעלה אוטומטית, פעילות ברקע או החרגה מניקוי זיכרון. " +
+            "ביטול אופטימיזציית סוללה לבדו אינו מונע Force Stop של היצרן."
+    }
 }

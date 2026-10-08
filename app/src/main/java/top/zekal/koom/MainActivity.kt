@@ -254,7 +254,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openBatterySettings() {
-        safeStart(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        // Samsung publishes an official deep link to its Never Sleeping Apps list.
+        if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) {
+            val samsungSettings = Intent(
+                "com.samsung.android.sm.ACTION_OPEN_CHECKABLE_LISTACTIVITY"
+            ).setPackage("com.samsung.android.lool").putExtra("activity_type", 2)
+            if (runCatching { startActivity(samsungSettings) }.isSuccess) return
+        }
+        // OEM-specific private autostart lists do not expose a standard API.
+        safeStart(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            .setData(Uri.parse("package:$packageName")))
     }
 
     private fun safeStart(intent: Intent) {

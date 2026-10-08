@@ -125,30 +125,39 @@ class RingService : Service() {
                 if (alarm?.soundFile != null) alarm.soundLabel else "Phone ringtone")
         } catch (e: Exception) {
             log.record("AUDIO_PRIMARY_FAILED", id, e.message.orEmpty())
+            // System ringtone providers can be locked before first unlock after reboot.
+            // Our own soft melody is in APK resources, available in Direct Boot.
             try {
-                val fallback = MediaPlayer()
+                player = playBundledChime()
+                log.record("AUDIO_STARTED", id, "Bundled gentle chime")
+            } catch (chimeError: Exception) {
+                log.record("AUDIO_CHIME_FAILED", id, chimeError.message.orEmpty())
                 try {
-                    fallback.setAudioAttributes(AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
-                    fallback.setDataSource(this,
-                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
-                    fallback.isLooping = true
-                    fallback.prepare()
-                    fallback.start()
-                    player = fallback
-                    log.record("AUDIO_STARTED", id, "System alarm fallback")
-                } catch (error: Exception) {
-                    fallback.release()
-                    throw error
+                    val fallback = MediaPlayer()
+                    try {
+                        fallback.setAudioAttributes(AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
+                        fallback.setDataSource(this,
+                            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
+                        fallback.isLooping = true
+                        fallback.prepare()
+                        fallback.start()
+                        player = fallback
+                        log.record("AUDIO_STARTED", id, "System alarm fallback")
+                    } catch (error: Exception) {
+                        fallback.release()
+                        throw error
+                    }
+                } catch (fallback: Exception) {
+                    log.record("AUDIO_FAILED", id,
+                        fallback.javaClass.simpleName + ": " + fallback.message)
+                    Log.e("KoomRing", "Unable to play any alarm sound", fallback)
+                    try {
+                        AlarmNotification.postFallback(this,
+                            alarm?.label ?: getString(R.string.ringing_title))
+                    } catch (_: Exception) { }
                 }
-            } catch (fallback: Exception) {
-                log.record("AUDIO_FAILED", id,
-                    fallback.javaClass.simpleName + ": " + fallback.message)
-                Log.e("KoomRing", "Unable to play any alarm sound", fallback)
-                try {
-                    AlarmNotification.postFallback(this, alarm?.label ?: getString(R.string.ringing_title))
-                } catch (_: Exception) { }
             }
         }
 
@@ -162,6 +171,25 @@ class RingService : Service() {
             vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 450, 600), 0))
         } catch (e: Exception) {
             log.record("VIBRATION_FAILED", id, e.message.orEmpty())
+        }
+    }
+
+    private fun playBundledChime(): MediaPlayer {
+        val result = MediaPlayer()
+        try {
+            result.setAudioAttributes(AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
+            resources.openRawResourceFd(R.raw.koom_chime).use { afd ->
+                result.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            }
+            result.isLooping = true
+            result.prepare()
+            result.start()
+            return result
+        } catch (error: Exception) {
+            result.release()
+            throw error
         }
     }
 

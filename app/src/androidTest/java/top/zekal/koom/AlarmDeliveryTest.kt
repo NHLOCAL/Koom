@@ -12,6 +12,13 @@ import org.junit.runner.RunWith
 /** AlarmManager → PendingIntent.getForegroundService, without a visible Activity. */
 @RunWith(AndroidJUnit4::class)
 class AlarmDeliveryTest {
+    @Test fun bundledDirectBootMelodyIsPackaged() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.resources.openRawResourceFd(R.raw.koom_chime).use { resource ->
+            assertTrue("Chime resource must be playable offline", resource.length > 5000)
+        }
+    }
+
     @Test fun exactAlarmDeliversWithNoVisibleActivity() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val scheduler = AlarmScheduler(context)
