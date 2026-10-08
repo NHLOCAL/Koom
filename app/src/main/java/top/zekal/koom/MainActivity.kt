@@ -130,6 +130,11 @@ class MainActivity : ComponentActivity() {
             if (AlarmScheduler(this).canSchedule()) AlarmScheduler(this).reconcile()
         } catch (_: Exception) { /* Errors are shown if storage cannot load. */ }
         refresh.intValue++
+        try {
+            if (store.activeIds().isNotEmpty()) {
+                startActivity(Intent(this, RingActivity::class.java))
+            }
+        } catch (_: Exception) { /* Legacy migration errors are shown in the UI. */ }
     }
 
     private fun notificationsAllowed(): Boolean =
