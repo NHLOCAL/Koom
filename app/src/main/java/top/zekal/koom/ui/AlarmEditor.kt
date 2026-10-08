@@ -103,9 +103,15 @@ fun AlarmEditor(
                 result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
             }
             if (uri != null) {
-                val name = runCatching { RingtoneManager.getRingtone(context, uri)?.getTitle(context) }
-                    .getOrNull() ?: "רינגטון מהטלפון"
-                chooseSound(uri, name)
+                if (uri == AlarmSounds.defaultUri()) {
+                    soundFile = null
+                    soundLabel = "צלצול הטלפון"
+                } else {
+                    val name = runCatching {
+                        RingtoneManager.getRingtone(context, uri)?.getTitle(context)
+                    }.getOrNull() ?: "רינגטון מהטלפון"
+                    chooseSound(uri, name)
+                }
             } else {
                 Toast.makeText(context, "לא נבחר רינגטון", Toast.LENGTH_SHORT).show()
             }

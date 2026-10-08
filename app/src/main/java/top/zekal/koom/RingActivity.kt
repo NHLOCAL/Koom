@@ -34,6 +34,15 @@ class RingActivity : ComponentActivity() {
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        // If Android delivered the PendingIntent but suspended the audio service,
+        // a now-visible activity is allowed to request foreground playback again.
+        try {
+            if (store.activeIds().isNotEmpty()) RingService.start(this)
+        } catch (error: Exception) {
+            AlarmDiagnostics(this).record("RESTORE_RING_FAILED",
+                detail = error.message.orEmpty())
+        }
+
         setContent {
             KoomTheme {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
