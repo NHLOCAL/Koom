@@ -3,6 +3,8 @@ package top.zekal.koom.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -39,7 +41,8 @@ fun RingScreen(alarm: Alarm, onSolved: () -> Unit) {
         Modifier.fillMaxSize()
             .background(Brush.verticalGradient(listOf(Palette.night, Palette.surfaceBright)))
             .padding(horizontal = 22.dp)
-            .systemBarsPadding(),
+            .systemBarsPadding()
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(24.dp))
@@ -64,7 +67,7 @@ fun RingScreen(alarm: Alarm, onSolved: () -> Unit) {
                 else -> NumberChallengeScreen(alarm = alarm, onSolved = onSolved)
             }
         }
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(24.dp))
         Text("תחשוב, תפתור, ותתחיל את היום.", color = Palette.muted, fontSize = 13.sp)
         Spacer(Modifier.height(22.dp))
     }
