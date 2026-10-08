@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
+import android.os.PowerManager
 import android.provider.OpenableColumns
 import android.util.Log
 import java.io.File
@@ -72,6 +73,8 @@ object AlarmSounds {
     fun start(context: Context, soundFile: String?, loop: Boolean = true): MediaPlayer {
         val player = MediaPlayer()
         try {
+            // Android holds the CPU awake only while the ringtone is actually playing.
+            player.setWakeMode(context.applicationContext, PowerManager.PARTIAL_WAKE_LOCK)
             player.setAudioAttributes(
                 android.media.AudioAttributes.Builder()
                     .setUsage(android.media.AudioAttributes.USAGE_ALARM)

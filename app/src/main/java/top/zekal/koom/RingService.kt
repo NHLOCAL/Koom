@@ -23,7 +23,6 @@ class RingService : Service() {
     private var player: MediaPlayer? = null
     private var currentAlarmId: String? = null
     private var vibrator: Vibrator? = null
-    private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -82,8 +81,6 @@ class RingService : Service() {
                 player?.release()
                 player = null
                 vibrator?.cancel()
-                if (wakeLock?.isHeld == true) wakeLock?.release()
-                wakeLock = null
                 currentAlarmId = id
                 startPlayback(alarm, id)
             }
@@ -107,16 +104,6 @@ class RingService : Service() {
     private fun startPlayback(alarm: Alarm?, id: String) {
         val log = AlarmDiagnostics(this)
         try {
-            val pm = getSystemService(POWER_SERVICE) as PowerManager
-            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "koom:ring").apply {
-                setReferenceCounted(false)
-                acquire(20 * 60 * 1000L)
-            }
-        } catch (e: Exception) {
-            log.record("WAKE_LOCK_FAILED", id, e.message.orEmpty())
-        }
-
-        try {
             if (alarm?.soundFile != null && AlarmSounds.file(this, alarm.soundFile) == null) {
                 log.record("SOUND_FILE_MISSING", id, "Custom sound missing: using system ringtone")
             }
@@ -135,6 +122,7 @@ class RingService : Service() {
                 try {
                     val fallback = MediaPlayer()
                     try {
+                        fallback.setWakeMode(applicationContext, PowerManager.PARTIAL_WAKE_LOCK)
                         fallback.setAudioAttributes(AudioAttributes.Builder()
                             .setUsage(AudioAttributes.USAGE_ALARM)
                             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
@@ -177,6 +165,7 @@ class RingService : Service() {
     private fun playBundledChime(): MediaPlayer {
         val result = MediaPlayer()
         try {
+            result.setWakeMode(applicationContext, PowerManager.PARTIAL_WAKE_LOCK)
             result.setAudioAttributes(AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
@@ -200,8 +189,6 @@ class RingService : Service() {
         currentAlarmId = null
         vibrator?.cancel()
         vibrator = null
-        if (wakeLock?.isHeld == true) wakeLock?.release()
-        wakeLock = null
         super.onDestroy()
     }
 
