@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,7 +54,7 @@ fun HomeScreen(
     onTestAlarm: () -> Unit,
     onBatterySettings: () -> Unit
 ) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tab by remember { mutableIntStateOf(0) }
     val tabs = listOf(
         "שעונים" to Icons.Default.Alarm,
         "הגדרות" to Icons.Default.Settings,

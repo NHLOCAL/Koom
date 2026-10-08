@@ -9,7 +9,8 @@ import org.json.JSONObject
 data class AlarmEvent(val atMillis: Long, val stage: String, val alarmId: String, val detail: String)
 
 class AlarmDiagnostics(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("koom_diagnostics_v1", Context.MODE_PRIVATE)
+    private val prefs = context.applicationContext.createDeviceProtectedStorageContext()
+        .getSharedPreferences("koom_diagnostics_v1", Context.MODE_PRIVATE)
 
     fun record(stage: String, id: String = "", detail: String = "") {
         Log.i("KoomDelivery", "$stage ($id) " + detail.take(200))

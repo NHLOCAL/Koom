@@ -12,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -300,13 +302,15 @@ fun AlarmEditor(
                 Row(
                     Modifier.fillMaxWidth().padding(bottom = 6.dp)
                         .background(Palette.surface, RoundedCornerShape(16.dp))
+                        .selectable(selected = puzzle == kind, role = Role.RadioButton,
+                            onClick = { puzzle = kind })
                         .padding(horizontal = 10.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(icon, contentDescription = null, tint = Palette.muted)
                     Spacer(Modifier.width(10.dp))
                     Text(title, modifier = Modifier.weight(1f), fontSize = 15.sp)
-                    RadioButton(selected = puzzle == kind, onClick = { puzzle = kind })
+                    RadioButton(selected = puzzle == kind, onClick = null)
                 }
             }
 
