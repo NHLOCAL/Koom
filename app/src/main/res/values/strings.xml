@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">קום</string>
+    <string name="alarm_channel">התראות השכמה</string>
+    <string name="ringing_title">קום! הגיע הזמן להתעורר</string>
+    <string name="ringing_content">פתור את החידה כדי לכבות את הצלצול</string>
+</resources>
