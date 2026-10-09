@@ -80,5 +80,6 @@ jobs:
           emulator-options: -no-window -no-audio -no-snapshot -gpu swiftshader_indirect -no-boot-anim
           script: |
             gradle --no-daemon connectedDebugAndroidTest
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
             bash scripts/verify-android12-process-death.sh
 

@@ -7,7 +7,11 @@ COMPONENT="$PACKAGE/top.zekal.koom.DebugAlarmTestReceiver"
 ALARM_ID="__koom_diagnostic_test__"
 
 echo "== Start app once to leave Android's stopped-package state =="
-adb shell am start -n "$PACKAGE/top.zekal.koom.MainActivity" >/dev/null
+if ! adb shell pm path "$PACKAGE" | grep -q '^package:'; then
+  echo "FAIL: install the debug APK after connectedDebugAndroidTest cleanup before this test"
+  exit 1
+fi
+adb shell am start -W -n "$PACKAGE/top.zekal.koom.MainActivity" >/dev/null
 adb shell input keyevent KEYCODE_HOME
 sleep 1
 
