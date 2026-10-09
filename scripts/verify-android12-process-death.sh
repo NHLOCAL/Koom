@@ -148,7 +148,8 @@ import sys
 
 alarm_text, intent_text = (pathlib.Path(p).read_text() for p in sys.argv[1:3])
 package, uri, due = sys.argv[3:]
-headers = list(re.finditer(r"(?m)^[ \t]*\*?\s*PendingIntentRecord\{([0-9a-f]+)\s+([^\s}]+)\s+([^\n]+)", intent_text))
+# AOSP groups packages under "* package: N items" and prints records as "#N: ...".
+headers = list(re.finditer(r"(?m)^[ \t]*(?:#\d+:[ \t]*|\*[ \t]*)?PendingIntentRecord\{([0-9a-f]+)\s+([^\s}]+)\s+([^\n]+)", intent_text))
 records = []
 for index, header in enumerate(headers):
     end = headers[index + 1].start() if index + 1 < len(headers) else len(intent_text)
