@@ -272,16 +272,55 @@ await_delivery() {
 
 assert_ring_activity() {
     local attempt
-    for attempt in {1..6}; do
+    for attempt in {1..8}; do
+        budget
         adbs dumpsys activity activities > "$CASE_DIR/ring-activity.txt"
-        if grep -E '(mResumedActivity|topResumedActivity|ResumedActivity)' "$CASE_DIR/ring-activity.txt" \
-            | grep -F "$TEST_PACKAGE/" | grep -q 'RingActivity'; then
-            timeout 5s adb exec-out screencap -p > "$CASE_DIR/lock-screen.png" || true
+        # RESUMED precedes the first rendered frame. Correlate draw state with
+        # this activity's record, so the launcher or splash cannot satisfy it.
+        if python3 - "$CASE_DIR/ring-activity.txt" "$TEST_PACKAGE" > "$CASE_DIR/ring-activity-verified.txt" <<'PY'
+import pathlib
+import re
+import sys
+
+dump = pathlib.Path(sys.argv[1]).read_text()
+component = sys.argv[2] + "/top.zekal.koom.RingActivity"
+focused = re.search(r"(?m)^\s*mCurrentFocus=Window\{[^\n]*\s" + re.escape(component) + r"\}", dump)
+for match in re.finditer(r"(?m)^([ \t]*)\* Hist\s+#\d+: ActivityRecord\{([^\n]+)\}", dump):
+    record = match.group(2)
+    if component not in record.split():
+        continue
+    lines = []
+    for line in dump[match.end():].splitlines():
+        if line.strip() and len(line) - len(line.lstrip()) <= len(match.group(1)):
+            break
+        lines.append(line)
+    block = "\n".join(lines)
+    resumed = re.search(r"(?m)^\s*(?:mResumedActivity|topResumedActivity|ResumedActivity)[:=]\s*ActivityRecord\{" + re.escape(record) + r"\}", dump)
+    fields = ("state=RESUMED", "reportedDrawn=true", "firstWindowDrawn=true", "nowVisible=true")
+    if focused and resumed and all(re.search(r"\b" + field + r"\b", block) for field in fields):
+        print("Verified drawn, visible and focused " + component)
+        sys.exit(0)
+sys.exit(1)
+PY
+        then
+            cat "$CASE_DIR/ring-activity-verified.txt"
+            timeout 5s adb exec-out screencap -p > "$CASE_DIR/lock-screen.png" || fail "Could not capture RingActivity"
+            python3 - "$CASE_DIR/lock-screen.png" <<'PY'
+import pathlib
+import struct
+import sys
+
+data = pathlib.Path(sys.argv[1]).read_bytes()
+if len(data) < 33 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+    raise SystemExit("FAIL: RingActivity screenshot is not a PNG")
+if min(struct.unpack(">II", data[16:24])) <= 0:
+    raise SystemExit("FAIL: RingActivity screenshot has no image dimensions")
+PY
             return
         fi
         sleep 1
     done
-    fail "RingActivity did not become the resumed full-screen activity"
+    fail "RingActivity did not become drawn, visible and focused above the lock screen"
 }
 
 # connectedDebugAndroidTest can uninstall the target APK; CI must reinstall it.

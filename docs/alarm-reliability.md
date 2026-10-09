@@ -59,9 +59,9 @@ Current outcomes and downloadable logs are attached to [workflow runs](https://g
 | Sound | Packaged chime, real copy/decode, reference protection and cleanup. | No injected media-server death or speaker measurement. |
 | Process death | Exact OS registration; live process killed with am kill; PID absent before due; fresh RECEIVED, SERVICE_FOREGROUND and AUDIO_STARTED. | Ordinary process removal, not force-stop. |
 | Screen-off Doze | Noninteractive and forced deep idle, followed by the same process-death and playback checks. | Disposable emulator settings are restored. |
-| Direct Boot | Real PIN, changed boot ID, locked user, restored same due/token, process removal, delivery and resumed RingActivity while still locked. | Real emulator lock state, not OEM firmware behavior. |
+| Direct Boot | Real PIN, changed boot ID, locked user, restored same due/token, process removal, delivery and a drawn, visible, focused RingActivity while still locked. | Real emulator lock state, not OEM firmware behavior. |
 
-Between verified process absence and playback the host only reads Logcat. It does not keep target-process instrumentation alive or use a debug hook to trigger delivery. The queue assertion correlates PendingIntent URI and record identity with the exact RTC_WAKEUP alarm and deadline; a package name or old delivery history is insufficient.
+Between verified process absence and playback the host only reads Logcat. It does not keep target-process instrumentation alive or use a debug hook to trigger delivery. The queue assertion correlates PendingIntent URI and record identity with the exact RTC_WAKEUP alarm and deadline; a package name or old delivery history is insufficient. Screen capture waits for the matching activity record to report its first drawn, visible frame and receive window focus. RESUMED alone can precede the actual frame and capture the lock screen or splash instead.
 
 Debug hooks are excluded from release builds. The script refuses PIN/reboot operations without explicit disposable-emulator configuration and ro.kernel.qemu=1. Logs, dumps, screenshot and reports upload even on failure. Cleanup restores idle settings, simulated battery, PIN and diagnostic state as far as the emulator connection permits.
 
