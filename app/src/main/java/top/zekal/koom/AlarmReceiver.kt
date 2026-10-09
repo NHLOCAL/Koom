@@ -13,7 +13,8 @@ class AlarmReceiver : BroadcastReceiver() {
         val log = AlarmDiagnostics(context)
         log.record("RECEIVED", id)
         try {
-            val alarm = AlarmStore(context).acceptTrigger(id)
+            val alarm = AlarmStore(context).acceptTrigger(id,
+                intent.getStringExtra(AlarmScheduler.EXTRA_OCCURRENCE_TOKEN))
             if (alarm == null) {
                 log.record("IGNORED", id, "Alarm was disabled or already delivered")
                 return

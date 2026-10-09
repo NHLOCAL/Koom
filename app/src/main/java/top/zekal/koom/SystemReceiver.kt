@@ -14,9 +14,7 @@ class SystemReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         try {
             when (intent.action) {
-                Intent.ACTION_LOCKED_BOOT_COMPLETED -> {
-                    AlarmStore(context).clearStaleRingingAfterBoot()
-                }
+                Intent.ACTION_LOCKED_BOOT_COMPLETED,
                 Intent.ACTION_BOOT_COMPLETED,
                 Intent.ACTION_MY_PACKAGE_REPLACED,
                 Intent.ACTION_TIME_CHANGED,
@@ -24,7 +22,10 @@ class SystemReceiver : BroadcastReceiver() {
                 AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED -> Unit
                 else -> return
             }
-            val successful = AlarmScheduler(context).reconcile()
+            val successful = AlarmScheduler(context).reconcile(
+                recalculateWallTime = intent.action == Intent.ACTION_TIME_CHANGED ||
+                    intent.action == Intent.ACTION_TIMEZONE_CHANGED
+            )
             AlarmDiagnostics(context).record(
                 if (successful) "SYSTEM_RESCHEDULED" else "RESCHEDULE_FAILED",
                 detail = intent.action.orEmpty()

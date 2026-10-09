@@ -1,8 +1,7 @@
 name: Android verification
 
 on:
-  push:
-    branches: [rewrite/android-native-v2]
+  # The PR and its source-branch push must not produce conflicting green checks.
   pull_request:
     branches: [build]
   workflow_dispatch:
@@ -38,6 +37,16 @@ jobs:
         run: gradle --no-daemon testDebugUnitTest
       - name: Compile and lint
         run: gradle --no-daemon assembleDebug assembleDebugAndroidTest lintDebug
+      - name: Upload unit-test and lint reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: koom-android-reports
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: warn
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         if: success()
         with:
@@ -47,7 +56,7 @@ jobs:
           retention-days: 7
 
   emulator:
-    if: github.event_name == 'pull_request'
+    # Manual verification runs the same device matrix as a PR.
     needs: android
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -71,6 +80,9 @@ jobs:
           sudo udevadm trigger --name-match=kvm || true
       - name: Run real Android emulator instrumentation tests
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          KOOM_DISPOSABLE_EMULATOR: '1'
+          KOOM_LIFECYCLE_ARTIFACTS: app/build/reports/lifecycle-api-${{ matrix.api-level }}
         with:
           api-level: ${{ matrix.api-level }}
           target: google_apis
@@ -81,5 +93,16 @@ jobs:
           script: |
             gradle --no-daemon connectedDebugAndroidTest
             adb install -r app/build/outputs/apk/debug/app-debug.apk
-            bash scripts/verify-android12-process-death.sh
+            timeout --signal=TERM --kill-after=25s 180s bash scripts/verify-android12-process-death.sh
+      - name: Upload device-test evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: koom-device-reports-api-${{ matrix.api-level }}
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            app/build/reports/lifecycle-api-${{ matrix.api-level }}/
+          if-no-files-found: warn
+          retention-days: 7
 

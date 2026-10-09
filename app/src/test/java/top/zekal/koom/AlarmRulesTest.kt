@@ -74,4 +74,18 @@ class AlarmRulesTest {
 
     @Test(expected = IllegalArgumentException::class)
     fun invalidHourRejected() { Alarm(hour = 24, minute = 0) }
+
+    @Test fun timeCorrectionKeepsAnAlarmWhoseDeliveryIsAlreadyDue() {
+        assertTrue(AlarmRules.keepOccurrence(100_000L, 100_001L, true))
+        assertTrue(AlarmRules.keepOccurrence(100_000L, 115_000L, true))
+        assertFalse(AlarmRules.keepOccurrence(100_000L, 115_001L, true))
+        assertFalse(AlarmRules.keepOccurrence(100_000L, 99_000L, true))
+        assertTrue(AlarmRules.keepOccurrence(100_000L, 99_000L, false))
+    }
+
+    @Test fun recoveryWindowDoesNotReplayOldAlarmsDaysLater() {
+        assertFalse(AlarmRules.occurrenceExpired(100_000L, 100_000L + 600_000L))
+        assertTrue(AlarmRules.occurrenceExpired(100_000L, 100_000L + 600_001L))
+        assertFalse(AlarmRules.occurrenceExpired(100_000L, 90_000L))
+    }
 }

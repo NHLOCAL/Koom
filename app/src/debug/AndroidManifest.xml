@@ -4,9 +4,12 @@
     <application>
         <receiver
             android:name="top.zekal.koom.DebugAlarmTestReceiver"
+            android:directBootAware="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="top.zekal.koom.DEBUG_SCHEDULE_ALARM"/>
+                <action android:name="top.zekal.koom.DEBUG_ALARM_STATUS"/>
+                <action android:name="top.zekal.koom.DEBUG_CLEANUP_ALARM"/>
             </intent-filter>
         </receiver>
     </application>

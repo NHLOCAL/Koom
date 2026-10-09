@@ -20,12 +20,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import top.zekal.koom.ui.AlarmEditor
 import top.zekal.koom.ui.HomeScreen
 import top.zekal.koom.ui.KoomTheme
+import org.json.JSONObject
 import java.time.LocalTime
 
 class MainActivity : ComponentActivity() {
@@ -44,6 +47,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         runCatching { AlarmNotification.ensureChannel(this) }
+        // A new process can reclaim files left by an interrupted import. During
+        // state restoration, the editor first restores its pending sound lease.
+        if (savedInstanceState == null) {
+            diagnostics.recordDeviceState()
+            runCatching { AlarmSounds.prune(this, store.all().mapNotNull { it.soundFile }.toSet()) }
+                .onFailure { diagnostics.record("SOUND_CLEANUP_FAILED", detail = it.message.orEmpty()) }
+        }
         showNotificationIntroduction.value =
             Build.VERSION.SDK_INT >= 33 && !hasPostNotificationsPermission() &&
                 !permissionPrefs.getBoolean("notification_intro_seen", false)
@@ -61,11 +71,15 @@ class MainActivity : ComponentActivity() {
                             val all = result.getOrThrow().filterNot {
                                 it.id == AlarmScheduler.TEST_ALARM_ID
                             }
-                            var editing by remember { mutableStateOf<Alarm?>(null) }
-                            var adding by remember { mutableStateOf(false) }
+                            var editingId by rememberSaveable { mutableStateOf<String?>(null) }
+                            var adding by rememberSaveable { mutableStateOf(false) }
+                            val editing = all.firstOrNull { it.id == editingId }
 
                             if (adding || editing != null) {
-                                val draft = remember(adding) {
+                                val draft = rememberSaveable(adding, saver = Saver<Alarm, String>(
+                                    save = { it.toJson().toString() },
+                                    restore = { Alarm.fromJson(JSONObject(it)) }
+                                )) {
                                     val time = LocalTime.now().plusMinutes(5)
                                     Alarm(hour = time.hour, minute = time.minute)
                                 }
@@ -73,7 +87,7 @@ class MainActivity : ComponentActivity() {
                                 AlarmEditor(
                                     alarm = base,
                                     isNew = adding,
-                                    onBack = { editing = null; adding = false },
+                                    onBack = { editingId = null; adding = false },
                                     onSave = { updated ->
                                         try {
                                             val scheduler = AlarmScheduler(this@MainActivity)
@@ -81,10 +95,9 @@ class MainActivity : ComponentActivity() {
                                                 message("לא נשמר כשעון פעיל: חסרה הרשאה לשעון מדויק")
                                                 openExactAlarmSettings()
                                             } else {
-                                                store.upsert(updated)
                                                 val ok = scheduler.update(updated)
                                                 if (ok) {
-                                                    editing = null
+                                                    editingId = null
                                                     adding = false
                                                 } else {
                                                     store.upsert(updated.copy(enabled = false))
@@ -99,9 +112,11 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onDelete = {
                                         try {
-                                            store.delete(base.id)
+                                            val wasRinging = base.id in store.activeIds()
                                             AlarmScheduler(this@MainActivity).cancel(base.id)
-                                            editing = null
+                                            store.delete(base.id)
+                                            if (wasRinging) RingService.refresh(this@MainActivity)
+                                            editingId = null
                                             adding = false
                                             refresh.intValue++
                                         } catch (error: Exception) {
@@ -121,7 +136,7 @@ class MainActivity : ComponentActivity() {
                                     batteryExempt = (getSystemService(POWER_SERVICE) as PowerManager)
                                         .isIgnoringBatteryOptimizations(packageName),
                                     onAdd = { adding = true },
-                                    onEdit = { editing = it },
+                                    onEdit = { editingId = it.id },
                                     onToggle = { alarm ->
                                         try {
                                             val updated = alarm.copy(enabled = !alarm.enabled)
@@ -129,7 +144,6 @@ class MainActivity : ComponentActivity() {
                                                 message("השעון לא הופעל: נדרשת הרשאה לשעון מדויק")
                                                 openExactAlarmSettings()
                                             } else {
-                                                store.upsert(updated)
                                                 if (!scheduler.update(updated)) {
                                                     store.upsert(updated.copy(enabled = false))
                                                     message("השעון נשמר כבוי: תזמון מערכת נכשל")
@@ -174,8 +188,8 @@ class MainActivity : ComponentActivity() {
                             AlertDialog(
                                 onDismissRequest = { closeIntroduction() },
                                 title = { Text("אפשר התראות השכמה") },
-                                text = { Text("כדי שהשעון יוכל להעיר אותך גם כשהמסך נעול " +
-                                    "והאפליקציה סגורה, צריך לאשר התראות.") },
+                                text = { Text("כדי להציג את ההשכמה ואת החידה גם במסך הנעילה, " +
+                                    "צריך לאשר התראות.") },
                                 confirmButton = {
                                     TextButton(onClick = {
                                         closeIntroduction()

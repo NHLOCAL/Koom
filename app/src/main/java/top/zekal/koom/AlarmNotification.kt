@@ -95,4 +95,20 @@ object AlarmNotification {
     fun cancel(context: Context) {
         context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
     }
+
+    fun postMissed(context: Context, alarm: Alarm) {
+        if (!notificationsAllowed(context)) return
+        val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val notification = Notification.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("ההשכמה הוחמצה: ${alarm.label}")
+            .setContentText("המכשיר או האפליקציה חזרו לפעול יותר מ-10 דקות אחרי מועד ההשכמה.")
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .build()
+        context.getSystemService(NotificationManager::class.java)
+            .notify("missed:${alarm.id}", NOTIFICATION_ID + 1, notification)
+    }
 }

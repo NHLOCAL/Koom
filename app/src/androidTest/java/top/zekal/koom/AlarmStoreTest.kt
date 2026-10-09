@@ -93,4 +93,60 @@ class AlarmStoreTest {
         assertNull(store.byId(alarm.id))
         assertEquals(emptyList<String>(), store.activeIds())
     }
+
+    @Test fun firstUnlockMigrationDoesNotResurrectPreBootRinging() {
+        val alarm = Alarm(hour = 6, minute = 0, enabled = false)
+        context.getSharedPreferences("koom_v2", 0).edit()
+            .putString("alarms_v2", JSONArray().put(alarm.toJson()).toString())
+            .putString("ringing_v2", JSONArray(listOf(alarm.id)).toString()).commit()
+        // LOCKED_BOOT_COMPLETED already cleared the old queue before migration was possible.
+        context.createDeviceProtectedStorageContext().getSharedPreferences("koom_v2", 0)
+            .edit().putString("ringing_v2", "[]").commit()
+        val store = AlarmStore(context)
+        assertEquals(alarm, store.byId(alarm.id))
+        assertTrue("First unlock must not resurrect a pre-reboot alarm", store.activeIds().isEmpty())
+    }
+
+    @Test fun orphanRingingIdsAreRemovedWithoutDiscardingValidAlarms() {
+        val alarm = Alarm(hour = 6, minute = 0)
+        val store = AlarmStore(context)
+        store.upsert(alarm)
+        context.createDeviceProtectedStorageContext().getSharedPreferences("koom_v2", 0)
+            .edit().putString("ringing_v2", JSONArray(listOf("deleted-alarm", alarm.id)).toString())
+            .commit()
+        assertEquals(listOf(alarm.id), store.activeIds())
+    }
+
+    @Test fun legacyDuplicateDoesNotAcceptSameRecurringAlarmTwice() {
+        val alarm = Alarm(hour = 6, minute = 0, daysMask = 127)
+        val store = AlarmStore(context)
+        store.upsert(alarm)
+        assertNotNull(store.acceptTrigger(alarm.id))
+        assertNull("A duplicated legacy delivery must not rearm an active alarm",
+            store.acceptTrigger(alarm.id))
+    }
+
+    @Test fun bootBroadcastInSameBootDoesNotDismissAnActiveAlarm() {
+        val store = AlarmStore(context)
+        val alarm = Alarm(hour = 6, minute = 0)
+        store.upsert(alarm)
+        store.acceptTrigger(alarm.id)
+        SystemReceiver().onReceive(context, android.content.Intent(android.content.Intent.ACTION_LOCKED_BOOT_COMPLETED))
+        assertEquals(listOf(alarm.id), store.activeIds())
+    }
+
+    @Test fun actualRebootRetainsRecentRingingWithoutReenablingOneShot() {
+        val alarm = Alarm(hour = 6, minute = 0)
+        val store = AlarmStore(context)
+        store.upsert(alarm)
+        store.acceptTrigger(alarm.id)
+        val currentBoot = android.provider.Settings.Global.getInt(context.contentResolver,
+            android.provider.Settings.Global.BOOT_COUNT, 0)
+        context.createDeviceProtectedStorageContext().getSharedPreferences("koom_v2", 0)
+            .edit().putInt("boot_count_v1", currentBoot + 10).commit()
+        val restored = AlarmStore(context)
+        assertEquals(listOf(alarm.id), restored.activeIds())
+        assertFalse(restored.byId(alarm.id)!!.enabled)
+        assertNotNull(restored.ringingRecoveryAtMillis())
+    }
 }

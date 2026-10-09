@@ -5,6 +5,17 @@ import java.time.ZonedDateTime
 
 /** Pure scheduling rules, expressed in local wall time, including DST boundaries. */
 object AlarmRules {
+    // A bounded recovery policy: do not replay an old alarm hours after the device returns.
+    const val RECOVERY_WINDOW_MILLIS = 10 * 60_000L
+    // AOSP DeskClock similarly protects a just-fired instance during time corrections.
+    private const val TIME_CHANGE_FIRE_BUFFER_MILLIS = 15_000L
+
+    fun keepOccurrence(atMillis: Long, nowMillis: Long, recalculateWallTime: Boolean): Boolean =
+        !recalculateWallTime || nowMillis - atMillis in 0..TIME_CHANGE_FIRE_BUFFER_MILLIS
+
+    fun occurrenceExpired(atMillis: Long, nowMillis: Long): Boolean =
+        nowMillis - atMillis > RECOVERY_WINDOW_MILLIS
+
     fun next(alarm: Alarm, now: ZonedDateTime): ZonedDateTime? {
         if (!alarm.enabled) return null
         for (offset in 0..7) {

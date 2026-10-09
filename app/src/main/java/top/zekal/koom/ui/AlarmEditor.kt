@@ -2,6 +2,8 @@ package top.zekal.koom.ui
 
 import android.app.Activity
 import android.app.TimePickerDialog
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.media.MediaPlayer
 import android.media.RingtoneManager
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -29,13 +32,17 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.zekal.koom.Alarm
+import top.zekal.koom.AlarmDiagnostics
 import top.zekal.koom.AlarmSounds
+import top.zekal.koom.AlarmStore
 import top.zekal.koom.PuzzleKind
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,20 +54,50 @@ fun AlarmEditor(
     onDelete: () -> Unit
 ) {
     val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
     val scope = rememberCoroutineScope()
-    var hour by remember(alarm.id) { mutableIntStateOf(alarm.hour) }
-    var minute by remember(alarm.id) { mutableIntStateOf(alarm.minute) }
-    var label by remember(alarm.id) { mutableStateOf(alarm.label) }
-    var daysMask by remember(alarm.id) { mutableIntStateOf(alarm.daysMask) }
-    var puzzle by remember(alarm.id) { mutableStateOf(alarm.puzzle) }
-    var soundFile by remember(alarm.id) { mutableStateOf(alarm.soundFile) }
-    var soundLabel by remember(alarm.id) { mutableStateOf(alarm.soundLabel) }
+    var hour by rememberSaveable(alarm.id) { mutableIntStateOf(alarm.hour) }
+    var minute by rememberSaveable(alarm.id) { mutableIntStateOf(alarm.minute) }
+    var label by rememberSaveable(alarm.id) { mutableStateOf(alarm.label) }
+    var daysMask by rememberSaveable(alarm.id) { mutableIntStateOf(alarm.daysMask) }
+    var puzzle by rememberSaveable(alarm.id) { mutableStateOf(alarm.puzzle) }
+    var soundFile by rememberSaveable(alarm.id) { mutableStateOf(alarm.soundFile) }
+    var soundLabel by rememberSaveable(alarm.id) { mutableStateOf(alarm.soundLabel) }
+    val draftId = rememberSaveable(alarm.id) { UUID.randomUUID().toString() }
     var importing by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
 
-    DisposableEffect(Unit) {
-        onDispose { runCatching { player?.release() } }
+    val savedFiles = {
+        AlarmStore(context).all().mapNotNull { it.soundFile }.toSet()
+    }
+    val discardImport: (String?) -> Unit = { name ->
+        runCatching { AlarmSounds.discardImport(context, draftId, name, savedFiles()) }
+            .onFailure { AlarmDiagnostics(context).record("SOUND_CLEANUP_FAILED", detail = it.message.orEmpty()) }
+    }
+    val stopPreview = {
+        runCatching { player?.release() }
+        player = null
+    }
+    val selectDefault = {
+        stopPreview()
+        soundFile = null
+        soundLabel = "צלצול הטלפון"
+        // An older saved activity snapshot may still refer to the previous sound.
+        // Keep all successful selections until this draft is saved or discarded.
+    }
+
+    DisposableEffect(draftId) {
+        AlarmSounds.beginDraft(draftId, soundFile)
+        onDispose {
+            runCatching { player?.release() }
+            // Picker launches do not dispose the editor. A rotation does, but
+            // the restored draft must keep ownership of its unsaved selection.
+            if (activity?.isChangingConfigurations != true) {
+                runCatching { AlarmSounds.finishDraft(context, draftId, savedFiles()) }
+                    .onFailure { AlarmDiagnostics(context).record("SOUND_CLEANUP_FAILED", detail = it.message.orEmpty()) }
+            }
+        }
     }
 
     LaunchedEffect(player) {
@@ -74,21 +111,30 @@ fun AlarmEditor(
     val chooseSound: (Uri, String?) -> Unit = { uri, preferredLabel ->
         scope.launch {
             importing = true
-            val result = runCatching {
-                withContext(Dispatchers.IO) {
-                    AlarmSounds.copyFromUri(context, uri, preferredLabel)
+            var copiedFile: String? = null
+            var selected = false
+            try {
+                val choice = withContext(Dispatchers.IO) {
+                    AlarmSounds.copyFromUri(context, uri, preferredLabel, draftId)
+                        .also { copiedFile = it.fileName }
                 }
-            }
-            result.onSuccess { choice ->
+                stopPreview()
                 soundFile = choice.fileName
                 soundLabel = choice.label
+                selected = true
                 Toast.makeText(context, "המנגינה נבחרה", Toast.LENGTH_SHORT).show()
-            }.onFailure { error ->
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
                 Toast.makeText(context,
                     "לא ניתן לפתוח את השמע: " + (error.localizedMessage ?: "נסה קובץ אחר"),
                     Toast.LENGTH_LONG).show()
+            } finally {
+                // withContext can finish copying just as its editor is removed.
+                // Release that result even when cancellation prevents selection.
+                if (!selected) discardImport(copiedFile)
+                importing = false
             }
-            importing = false
         }
     }
 
@@ -104,8 +150,7 @@ fun AlarmEditor(
             }
             if (uri != null) {
                 if (uri == AlarmSounds.defaultUri()) {
-                    soundFile = null
-                    soundLabel = "צלצול הטלפון"
+                    selectDefault()
                 } else {
                     val name = runCatching {
                         RingtoneManager.getRingtone(context, uri)?.getTitle(context)
@@ -254,12 +299,7 @@ fun AlarmEditor(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = {
-                    runCatching { player?.release() }
-                    player = null
-                    soundFile = null
-                    soundLabel = "צלצול הטלפון"
-                }, enabled = !importing) {
+                TextButton(onClick = selectDefault, enabled = !importing) {
                     Icon(Icons.Default.Restore, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
                     Text("ברירת מחדל")
@@ -365,4 +405,10 @@ fun AlarmEditor(
             }
         )
     }
+}
+
+private fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.takeUnless { it === this }?.findActivity()
+    else -> null
 }

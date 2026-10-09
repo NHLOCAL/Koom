@@ -7,9 +7,9 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.util.Log
-import java.time.Instant
 import java.time.LocalTime
 import java.time.ZonedDateTime
+import java.util.UUID
 
 /** Exact OS alarm clock with explicit unique PendingIntent identity per alarm. */
 class AlarmScheduler(context: Context) {
@@ -23,6 +23,11 @@ class AlarmScheduler(context: Context) {
     fun nextSystemAlarmMillis(): Long? = manager.nextAlarmClock?.triggerTime
 
     fun cancel(id: String) {
+        // Invalidate before canceling Android's registration: delivery may already be queued.
+        val store = AlarmStore(app)
+        val previous = store.occurrence(id)
+        store.forgetOccurrence(id)
+        if (previous != null) cancelPending(alarmIntent(id, PendingIntent.FLAG_NO_CREATE, previous.token))
         cancelPending(alarmIntent(id, PendingIntent.FLAG_NO_CREATE))
         // Remove alarms registered by v2.1's BroadcastReceiver before this upgrade.
         cancelLegacyBroadcast(id)
@@ -42,6 +47,7 @@ class AlarmScheduler(context: Context) {
 
     fun update(alarm: Alarm): Boolean {
         cancel(alarm.id)
+        AlarmStore(app).upsert(alarm)
         return !alarm.enabled || schedule(alarm)
     }
 
@@ -62,8 +68,8 @@ class AlarmScheduler(context: Context) {
             id = TEST_ALARM_ID, hour = now.hour, minute = now.minute,
             label = "בדיקת התעוררות", puzzle = PuzzleKind.MATH, enabled = true
         )
-        AlarmStore(app).upsert(alarm)
         cancel(TEST_ALARM_ID)
+        AlarmStore(app).upsert(alarm)
         val success = scheduleAt(TEST_ALARM_ID,
             System.currentTimeMillis() + delayMillis.coerceAtLeast(5_000))
         if (!success) AlarmStore(app).upsert(alarm.copy(enabled = false))
@@ -73,36 +79,113 @@ class AlarmScheduler(context: Context) {
     fun scheduleFollowingDelivery(alarm: Alarm): Boolean =
         schedule(alarm, ZonedDateTime.now().plusSeconds(2))
 
-    fun reconcile(): Boolean {
-        if (!canSchedule()) {
-            diagnostics.record("SCHEDULE_BLOCKED", detail = "Exact alarm permission missing")
-            return false
-        }
+    /**
+     * Acceptance and AlarmManager registration cannot be one transaction. A service retry
+     * must finish this work even when its delivered token was already consumed on disk.
+     */
+    fun restoreActiveRecurringAlarms(): Boolean {
+        val store = AlarmStore(app)
         var ok = true
-        for (alarm in AlarmStore(app).all()) {
-            if (alarm.id == TEST_ALARM_ID) continue
-            if (alarm.enabled) {
-                ok = schedule(alarm) && ok
+        for (id in store.activeIds()) {
+            val alarm = store.byId(id) ?: continue
+            if (!alarm.enabled || alarm.daysMask == 0) continue
+            val pending = store.occurrence(id)
+            ok = if (pending != null) {
+                scheduleAt(id, pending.atMillis, pending.token) && ok
             } else {
-                cancel(alarm.id)
+                scheduleFollowingDelivery(alarm) && ok
             }
         }
         return ok
     }
 
-    private fun scheduleAt(id: String, timeMillis: Long): Boolean {
+    fun reconcile(recalculateWallTime: Boolean = false): Boolean {
+        if (!canSchedule()) {
+            diagnostics.record("SCHEDULE_BLOCKED", detail = "Exact alarm permission missing")
+            return false
+        }
+        var ok = true
+        val store = AlarmStore(app)
+        val nowMillis = System.currentTimeMillis()
+        for (alarm in store.all()) {
+            if (alarm.enabled) {
+                val pending = store.occurrence(alarm.id)
+                // Diagnostic alarms have an absolute, short deadline, not a daily clock time.
+                if (alarm.id == TEST_ALARM_ID && pending == null) continue
+                if (pending != null && !recalculateWallTime &&
+                    AlarmRules.occurrenceExpired(pending.atMillis, nowMillis)) {
+                    cancel(alarm.id)
+                    diagnostics.record("MISSED", alarm.id, "Recovery deadline exceeded")
+                    runCatching { AlarmNotification.postMissed(app, alarm) }
+                    if (alarm.daysMask == 0) store.upsert(alarm.copy(enabled = false))
+                    else ok = schedule(alarm) && ok
+                    continue
+                }
+                ok = if (pending != null && (alarm.id == TEST_ALARM_ID ||
+                        AlarmRules.keepOccurrence(pending.atMillis, nowMillis, recalculateWallTime))) {
+                    // This includes just-overdue alarms. setAlarmClock delivers a past deadline
+                    // promptly instead of silently postponing it until tomorrow on app resume.
+                    scheduleAt(alarm.id, pending.atMillis, pending.token) && ok
+                } else {
+                    schedule(alarm) && ok
+                }
+            } else {
+                cancel(alarm.id)
+            }
+        }
+        val recoveryAt = store.ringingRecoveryAtMillis()
+        if (recoveryAt != null && store.activeIds().isNotEmpty()) {
+            ok = scheduleRingingRecovery(recoveryAt) && ok
+        }
+        return ok
+    }
+
+    /** Resume a recent, already accepted alarm without re-enabling its one-shot definition. */
+    private fun scheduleRingingRecovery(atMillis: Long): Boolean = try {
+        val show = PendingIntent.getActivity(app, 0, Intent(app, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        manager.setAlarmClock(AlarmManager.AlarmClockInfo(atMillis, show),
+            requireNotNull(recoveryIntent(PendingIntent.FLAG_UPDATE_CURRENT)))
+        diagnostics.record("RING_RECOVERY_SCHEDULED", detail = atMillis.toString())
+        true
+    } catch (error: Exception) {
+        diagnostics.record("RESCHEDULE_FAILED", detail = "Ringing recovery: ${error.message}")
+        false
+    }
+
+    fun cancelRingingRecovery() {
+        AlarmStore(app).finishRingingRecovery()
+        cancelPending(recoveryIntent(PendingIntent.FLAG_NO_CREATE))
+    }
+
+    private fun recoveryIntent(flag: Int): PendingIntent? = PendingIntent.getForegroundService(
+        app, 1, Intent(app, RingService::class.java).apply {
+            action = ACTION_RECOVER_RINGING
+            data = Uri.parse("koom://ring-recovery")
+        }, flag or PendingIntent.FLAG_IMMUTABLE)
+
+    private fun scheduleAt(id: String, timeMillis: Long, token: String = UUID.randomUUID().toString()): Boolean {
         if (!canSchedule()) {
             diagnostics.record("SCHEDULE_BLOCKED", id, "Exact alarm permission missing")
             return false
         }
+        val store = AlarmStore(app)
         return try {
+            val previous = store.occurrence(id)
             val show = PendingIntent.getActivity(app, 0,
                 Intent(app, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             // Prevent a previously registered v2 BroadcastReceiver from firing as well.
             cancelLegacyBroadcast(id)
-            val trigger = requireNotNull(alarmIntent(id, PendingIntent.FLAG_UPDATE_CURRENT))
+            // Persist before registration, because a past-due alarm may be delivered immediately.
+            store.rememberOccurrence(id, AlarmOccurrence(timeMillis, token))
+            if (previous != null && previous.token != token) {
+                cancelPending(alarmIntent(id, PendingIntent.FLAG_NO_CREATE, previous.token))
+            }
+            // Cancel v2.2's service PendingIntent, whose identity did not include an occurrence.
+            cancelPending(alarmIntent(id, PendingIntent.FLAG_NO_CREATE))
+            val trigger = requireNotNull(alarmIntent(id, PendingIntent.FLAG_UPDATE_CURRENT, token))
             manager.setAlarmClock(AlarmManager.AlarmClockInfo(timeMillis, show), trigger)
             diagnostics.record("SCHEDULED", id, timeMillis.toString())
             true
@@ -119,12 +202,15 @@ class AlarmScheduler(context: Context) {
      * Android 12's user-requested exact-alarm exemption applies to this start.
      * No broadcast → startForegroundService trampoline is needed.
      */
-    private fun alarmIntent(id: String, flag: Int): PendingIntent? =
+    private fun alarmIntent(id: String, flag: Int, token: String? = null): PendingIntent? =
         PendingIntent.getForegroundService(app, 0,
             Intent(app, RingService::class.java).apply {
                 action = ACTION_FIRE
-                data = Uri.parse("koom://alarm/" + Uri.encode(id))
+                data = Uri.parse("koom://alarm/" + Uri.encode(id)).buildUpon().apply {
+                    if (token != null) appendQueryParameter("occurrence", token)
+                }.build()
                 putExtra(EXTRA_ALARM_ID, id)
+                if (token != null) putExtra(EXTRA_OCCURRENCE_TOKEN, token)
             }, flag or PendingIntent.FLAG_IMMUTABLE)
 
     private fun legacyBroadcast(id: String, flag: Int): PendingIntent? =
@@ -137,7 +223,9 @@ class AlarmScheduler(context: Context) {
 
     companion object {
         const val ACTION_FIRE = "top.zekal.koom.action.FIRE"
+        const val ACTION_RECOVER_RINGING = "top.zekal.koom.action.RECOVER_RINGING"
         const val EXTRA_ALARM_ID = "alarm_id"
+        const val EXTRA_OCCURRENCE_TOKEN = "occurrence_token"
         const val TEST_ALARM_ID = "__koom_diagnostic_test__"
     }
 }

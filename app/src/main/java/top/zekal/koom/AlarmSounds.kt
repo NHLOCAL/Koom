@@ -16,17 +16,60 @@ data class ChosenSound(val fileName: String, val label: String)
 /** Own a durable local copy: SAF and ringtone-provider permissions can expire at boot. */
 object AlarmSounds {
     private const val MAX_BYTES = 25L * 1024L * 1024L
+    private val ownedFileName = Regex("[a-zA-Z0-9_-]{1,70}\\.audio")
+    private val lock = Any()
+    // Keep every successful selection for the draft's lifetime: an activity's
+    // last saved snapshot may refer to a sound superseded by a background import.
+    // Tokens survive recreation; finishDraft releases them after save/discard.
+    private val drafts = mutableMapOf<String, MutableSet<String>>()
+    private val copying = mutableSetOf<String>()
 
     private fun dir(context: Context): File =
         File(context.applicationContext.createDeviceProtectedStorageContext().filesDir, "alarm_sounds")
-            .apply { if (!exists()) check(mkdirs()) { "Could not create sound directory" } }
+            .apply { check(isDirectory || mkdirs() || isDirectory) { "Could not create sound directory" } }
 
     fun file(context: Context, name: String?): File? {
-        if (name.isNullOrBlank() || !name.matches(Regex("[a-zA-Z0-9_-]{1,70}\\.audio"))) return null
+        if (name.isNullOrBlank() || !name.matches(ownedFileName)) return null
         return File(dir(context), name).takeIf { it.isFile }
     }
 
-    fun copyFromUri(context: Context, uri: Uri, displayLabel: String? = null): ChosenSound {
+    fun beginDraft(id: String, selectedFile: String? = null) = synchronized(lock) {
+        val files = drafts.getOrPut(id) { mutableSetOf() }
+        if (selectedFile != null && selectedFile.matches(ownedFileName)) files.add(selectedFile)
+    }
+
+    /** Release only a failed/cancelled result that never became an editor selection. */
+    fun discardImport(context: Context, draftId: String, name: String?, savedFiles: Set<String>) {
+        if (name == null) return
+        synchronized(lock) {
+            drafts[draftId]?.remove(name)
+            deleteIfUnused(context, name, savedFiles)
+        }
+    }
+
+    fun finishDraft(context: Context, id: String, savedFiles: Set<String>) = synchronized(lock) {
+        drafts.remove(id)
+        prune(context, savedFiles)
+    }
+
+    /** Call with references from every saved alarm, including disabled alarms. */
+    fun prune(context: Context, savedFiles: Set<String>) = synchronized(lock) {
+        dir(context).listFiles()?.forEach { candidate ->
+            if (candidate.isFile && candidate.name.matches(ownedFileName)) {
+                deleteIfUnused(context, candidate.name, savedFiles)
+            }
+        }
+    }
+
+    private fun deleteIfUnused(context: Context, name: String, savedFiles: Set<String>) {
+        if (!name.matches(ownedFileName) || name in savedFiles || name in copying ||
+            drafts.values.any { name in it }) return
+        val candidate = File(dir(context), name)
+        if (candidate.isFile && !candidate.delete()) Log.w("KoomSounds", "Could not remove unused sound")
+    }
+
+    fun copyFromUri(context: Context, uri: Uri, displayLabel: String? = null,
+                    draftId: String): ChosenSound {
         require(uri.scheme == "content" || uri.scheme == "android.resource") {
             "Please select audio using the system picker"
         }
@@ -37,7 +80,14 @@ object AlarmSounds {
             }
         }.getOrNull() ?: "מנגינה שבחרת"
 
-        val destination = File(dir(context), UUID.randomUUID().toString() + ".audio")
+        val destination = synchronized(lock) {
+            val files = checkNotNull(drafts[draftId]) { "Sound editor was closed" }
+            File(dir(context), UUID.randomUUID().toString() + ".audio").also {
+                files.add(it.name)
+                copying.add(it.name)
+            }
+        }
+        var completed = false
         try {
             val source = resolver.openInputStream(uri) ?: error("Sound file cannot be opened")
             source.use { input ->
@@ -60,11 +110,22 @@ object AlarmSounds {
                 probe.setDataSource(destination.absolutePath)
                 probe.prepare()
             } finally { probe.release() }
+            synchronized(lock) {
+                check(drafts[draftId]?.contains(destination.name) == true) { "Sound editor was closed" }
+                completed = true
+            }
             return ChosenSound(destination.name, label.take(65))
         } catch (error: Exception) {
-            destination.delete()
             Log.e("KoomSounds", "Sound import failed", error)
             throw error
+        } finally {
+            synchronized(lock) {
+                copying.remove(destination.name)
+                if (!completed || drafts[draftId]?.contains(destination.name) != true) {
+                    drafts[draftId]?.remove(destination.name)
+                    destination.delete()
+                }
+            }
         }
     }
 
