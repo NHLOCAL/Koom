@@ -10,11 +10,15 @@ STATUS_ACTION="top.zekal.koom.DEBUG_ALARM_STATUS"
 CLEANUP_ACTION="top.zekal.koom.DEBUG_CLEANUP_ALARM"
 TEST_PIN="482631"
 ARTIFACTS="${KOOM_LIFECYCLE_ARTIFACTS:-app/build/reports/lifecycle}"
-BUDGET_END=$((SECONDS + 170))
+BUDGET_END=$((SECONDS + 230))
 PIN_SET=0
 IDLE_CHANGED=0
+DEVICE_CONFIG_CHANGED=0
 ORIGINAL_IDLE_CONSTANTS="null"
 ORIGINAL_DEEP_ENABLED="1"
+ORIGINAL_MIN_TIME_TO_ALARM="null"
+ORIGINAL_MIN_DEVICE_IDLE_FUZZ="null"
+ORIGINAL_MAX_DEVICE_IDLE_FUZZ="null"
 CASE_NAME="setup"
 CASE_DIR="$ARTIFACTS/$CASE_NAME"
 mkdir -p "$CASE_DIR"
@@ -41,9 +45,24 @@ capture() {
     timeout 3s adb shell dumpsys package "$TEST_PACKAGE" > "$directory/package.txt" 2>&1 || true
 }
 
+restore_device_config() {
+    local namespace="$1" key="$2" original="$3"
+    if [[ "$original" == "null" ]]; then
+        adbs device_config delete "$namespace" "$key" >/dev/null
+    else
+        adbs device_config put "$namespace" "$key" "$original" >/dev/null
+    fi
+}
+
 restore_idle() {
     adbs dumpsys deviceidle unforce >/dev/null
     adbs dumpsys battery reset >/dev/null
+    if [[ "$DEVICE_CONFIG_CHANGED" == "1" ]]; then
+        restore_device_config device_idle min_time_to_alarm "$ORIGINAL_MIN_TIME_TO_ALARM"
+        restore_device_config alarm_manager min_device_idle_fuzz "$ORIGINAL_MIN_DEVICE_IDLE_FUZZ"
+        restore_device_config alarm_manager max_device_idle_fuzz "$ORIGINAL_MAX_DEVICE_IDLE_FUZZ"
+        DEVICE_CONFIG_CHANGED=0
+    fi
     if [[ "$IDLE_CHANGED" == "1" ]]; then
         if [[ "$ORIGINAL_IDLE_CONSTANTS" == "null" ]]; then
             adbs settings delete global device_idle_constants >/dev/null
@@ -55,6 +74,24 @@ restore_idle() {
         fi
         IDLE_CHANGED=0
     fi
+}
+
+wait_for_doze_settings() {
+    local attempt config_deadline=$((SECONDS + 12))
+    for attempt in {1..8}; do
+        budget
+        (( SECONDS < config_deadline )) || break
+        adbs dumpsys deviceidle > "$CASE_DIR/configured-deviceidle.txt"
+        adbs dumpsys alarm > "$CASE_DIR/configured-alarm.txt"
+        if grep -Eq '^[[:space:]]*min_time_to_alarm=0[[:space:]]*$' "$CASE_DIR/configured-deviceidle.txt" &&
+           grep -Eq '^[[:space:]]*min_device_idle_fuzz=0[[:space:]]*$' "$CASE_DIR/configured-alarm.txt" &&
+           grep -Eq '^[[:space:]]*max_device_idle_fuzz=0[[:space:]]*$' "$CASE_DIR/configured-alarm.txt"; then
+            printf 'Verified forced-Doze settings in DeviceIdle and AlarmManager dumps\n'
+            return
+        fi
+        sleep 1
+    done
+    fail "Device idle settings did not take effect (see configured-deviceidle.txt and configured-alarm.txt)"
 }
 
 cleanup() {
@@ -275,12 +312,28 @@ begin_case screen-off-doze-process-death
 ORIGINAL_IDLE_CONSTANTS="$(adbs settings get global device_idle_constants)"
 [[ "$ORIGINAL_IDLE_CONSTANTS" =~ ^[A-Za-z0-9_=.,+-]+$ ]] || fail "Unexpected device_idle_constants format"
 ORIGINAL_DEEP_ENABLED="$(adbs dumpsys deviceidle enabled deep)"
+ORIGINAL_MIN_TIME_TO_ALARM="$(adbs device_config get device_idle min_time_to_alarm)"
+ORIGINAL_MIN_DEVICE_IDLE_FUZZ="$(adbs device_config get alarm_manager min_device_idle_fuzz)"
+ORIGINAL_MAX_DEVICE_IDLE_FUZZ="$(adbs device_config get alarm_manager max_device_idle_fuzz)"
+for original in "$ORIGINAL_MIN_TIME_TO_ALARM" "$ORIGINAL_MIN_DEVICE_IDLE_FUZZ" "$ORIGINAL_MAX_DEVICE_IDLE_FUZZ"; do
+    [[ "$original" =~ ^(null|-?[0-9]+)$ ]] || fail "Unexpected DeviceConfig duration"
+done
+printf 'device_idle_constants=%s\ndeep_enabled=%s\ndevice_idle/min_time_to_alarm=%s\nalarm_manager/min_device_idle_fuzz=%s\nalarm_manager/max_device_idle_fuzz=%s\n' \
+    "$ORIGINAL_IDLE_CONSTANTS" "$ORIGINAL_DEEP_ENABLED" "$ORIGINAL_MIN_TIME_TO_ALARM" \
+    "$ORIGINAL_MIN_DEVICE_IDLE_FUZZ" "$ORIGINAL_MAX_DEVICE_IDLE_FUZZ" > "$CASE_DIR/original-idle-settings.txt"
+# Flag all writes before starting so a partially applied setup is restored too.
 IDLE_CHANGED=1
-# A near-term alarm clock normally prevents deep idle. For this bounded forced-Doze
-# test only, remove that lead time; restore the exact original setting in the trap.
+DEVICE_CONFIG_CHANGED=1
+# API 31 reads DeviceConfig; newer releases can override it through global Settings.
+# AlarmManager separately advances idle exit by 2–15 minutes before an alarm clock.
+# Remove both margins only for this disposable forced-Doze test, restoring them later.
 IDLE_PREFIX="$ORIGINAL_IDLE_CONSTANTS"
 [[ "$IDLE_PREFIX" != "null" ]] || IDLE_PREFIX=""
-adbs settings put global device_idle_constants "${IDLE_PREFIX:+$IDLE_PREFIX,}min_time_to_alarm=0"
+adbs settings put global device_idle_constants "${IDLE_PREFIX:+$IDLE_PREFIX,}min_time_to_alarm=0" >/dev/null
+adbs device_config put device_idle min_time_to_alarm 0 >/dev/null
+adbs device_config put alarm_manager min_device_idle_fuzz 0 >/dev/null
+adbs device_config put alarm_manager max_device_idle_fuzz 0 >/dev/null
+wait_for_doze_settings
 adbs dumpsys deviceidle enable deep >/dev/null
 adbs dumpsys battery unplug >/dev/null
 schedule_diagnostic 22000
