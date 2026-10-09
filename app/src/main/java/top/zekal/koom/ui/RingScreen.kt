@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import top.zekal.koom.Alarm
@@ -66,9 +68,14 @@ fun RingScreen(alarm: Alarm, onSolved: () -> Unit) {
             modifier = Modifier.fillMaxWidth()
         ) {
             when (alarm.puzzle) {
-                PuzzleKind.MATH, PuzzleKind.SEQUENCE -> NumberChallenge(alarm, finish)
+                // Numeric order and image coordinates stay LTR inside the Hebrew UI.
+                PuzzleKind.MATH, PuzzleKind.SEQUENCE -> CompositionLocalProvider(
+                    LocalLayoutDirection provides LayoutDirection.Ltr
+                ) { NumberChallenge(alarm, finish) }
                 PuzzleKind.KNOWLEDGE, PuzzleKind.LOGIC -> ChoiceChallenge(alarm, finish)
-                PuzzleKind.IMAGE -> ImageChallenge(alarm.id, finish)
+                PuzzleKind.IMAGE -> CompositionLocalProvider(
+                    LocalLayoutDirection provides LayoutDirection.Ltr
+                ) { ImageChallenge(alarm.id, finish) }
             }
         }
         Spacer(Modifier.height(26.dp))

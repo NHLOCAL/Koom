@@ -21,6 +21,8 @@ The app keeps its native AlarmManager architecture and separate beta package. Th
 | Boot | Repeated boot broadcasts could discard recent ringing or pre-unlock playback. | Compare BOOT_COUNT and use a dedicated recent-ringing recovery event. |
 | Imported sounds | Abandoned copies leaked; early deletion could break an older saved editor snapshot. | Protect saved, draft and copying files; retain successful draft selections until editing finishes. |
 | Audio errors | A failure after successful start could remain silent. | Handle asynchronous MediaPlayer errors with a finite fallback chain. |
+| RTL puzzle layout | Hebrew layout mirrored equations, the numeric keypad and image tile coordinates. | Scope LTR layout to numeric and image puzzles; Hebrew labels retain content-based text direction. |
+| Diagnostic clock label | The test displayed its creation time instead of its scheduled time. | Derive the displayed time and exact registration from one due timestamp. |
 
 ## Durable scheduling
 

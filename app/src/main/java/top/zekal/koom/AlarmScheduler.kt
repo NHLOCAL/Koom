@@ -7,8 +7,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.util.Log
-import java.time.LocalTime
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 /** Exact OS alarm clock with explicit unique PendingIntent identity per alarm. */
@@ -63,15 +63,14 @@ class AlarmScheduler(context: Context) {
             diagnostics.record("SCHEDULE_BLOCKED", TEST_ALARM_ID, "Exact alarm permission")
             return false
         }
-        val now = LocalTime.now()
+        val due = ZonedDateTime.now().plus(delayMillis.coerceAtLeast(5_000), ChronoUnit.MILLIS)
         val alarm = Alarm(
-            id = TEST_ALARM_ID, hour = now.hour, minute = now.minute,
+            id = TEST_ALARM_ID, hour = due.hour, minute = due.minute,
             label = "בדיקת התעוררות", puzzle = PuzzleKind.MATH, enabled = true
         )
         cancel(TEST_ALARM_ID)
         AlarmStore(app).upsert(alarm)
-        val success = scheduleAt(TEST_ALARM_ID,
-            System.currentTimeMillis() + delayMillis.coerceAtLeast(5_000))
+        val success = scheduleAt(TEST_ALARM_ID, due.toInstant().toEpochMilli())
         if (!success) AlarmStore(app).upsert(alarm.copy(enabled = false))
         return success
     }

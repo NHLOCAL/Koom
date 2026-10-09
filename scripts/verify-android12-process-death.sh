@@ -241,11 +241,23 @@ kill_and_prove_absent() {
     # transport must not be mistaken for an absent process.
     adbs "pidof $TEST_PACKAGE || [ \$? = 1 ]" > "$CASE_DIR/pid-before.txt"
     [[ -s "$CASE_DIR/pid-before.txt" ]] || fail "No live process was available for am kill"
-    adbs am kill "$TEST_PACKAGE"
-    sleep 2
-    adbs "pidof $TEST_PACKAGE || [ \$? = 1 ]" > "$CASE_DIR/pid-after.txt"
+    # Home can return before the previous activity finishes stopping. Android
+    # ignores am kill while that process is still foreground-eligible; retry
+    # briefly without changing the alarm deadline or using force-stop.
+    local attempt now
+    for attempt in {1..6}; do
+        budget
+        now="$(adbs date +%s)"
+        [[ "$now" =~ ^[0-9]+$ ]] || fail "Could not read device time"
+        (( now * 1000 + 4000 < EXPECTED_DUE )) || fail "Too close to the alarm deadline to retry am kill"
+        adbs am kill "$TEST_PACKAGE"
+        sleep 1
+        adbs "pidof $TEST_PACKAGE || [ \$? = 1 ]" > "$CASE_DIR/pid-after.txt"
+        [[ -s "$CASE_DIR/pid-after.txt" ]] || break
+        cmp -s "$CASE_DIR/pid-before.txt" "$CASE_DIR/pid-after.txt" || fail "The app process restarted before absence was proven"
+        printf 'Waiting for background eligibility before retrying am kill (attempt %s/6)\n' "$attempt"
+    done
     [[ ! -s "$CASE_DIR/pid-after.txt" ]] || fail "am kill did not remove the app process"
-    local now
     now="$(adbs date +%s)"
     [[ "$now" =~ ^[0-9]+$ ]] || fail "Could not read device time"
     (( now * 1000 + 2000 < EXPECTED_DUE )) || fail "Process absence was not proven before the deadline"
